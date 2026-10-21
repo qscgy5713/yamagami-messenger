@@ -41,12 +41,16 @@ static func material(color: Color, emissive := false, energy: float = 0.8) -> St
 static var _ui_font: FontFile
 
 
-static func label(parent: Node, font_size: int) -> Label:
-	## HUD / 對話共用的 Label:內嵌 Noto Sans TC(Godot 預設字型沒有中日文字)、米白字加墨色描邊。
+static func font() -> FontFile:
 	if _ui_font == null:
 		_ui_font = load(UI_FONT_PATH) as FontFile
+	return _ui_font
+
+
+static func label(parent: Node, font_size: int) -> Label:
+	## HUD / 對話共用的 Label:內嵌 Noto Sans TC(Godot 預設字型沒有中日文字)、米白字加墨色描邊。
 	var l := Label.new()
-	l.add_theme_font_override("font", _ui_font)
+	l.add_theme_font_override("font", font())
 	l.add_theme_font_size_override("font_size", font_size)
 	l.add_theme_color_override("font_color", C_CREAM)
 	l.add_theme_color_override("font_outline_color", C_SUMI)
@@ -153,8 +157,8 @@ static func torii(pos: Vector3, scale: float = 1.0) -> MeshInstance3D:
 	var inst := MeshInstance3D.new()
 	inst.mesh = load(TORII_MESH_PATH) as Mesh
 	# 表面順序:0 = red、1 = black(依 OBJ 的 usemtl 順序)。
-	inst.set_surface_override_material(0, material(C_VERMILION))
-	inst.set_surface_override_material(1, material(C_SUMI))
+	inst.set_surface_override_material(0, tex("WoodFloor064", 0.3, Color("d9694f")))
+	inst.set_surface_override_material(1, tex("WoodFloor064", 0.3, Color("4a4a4f")))
 	inst.scale = Vector3.ONE * scale
 	inst.position = pos + Vector3(0.0, TORII_FOOT_OFFSET * scale, 0.0)
 	return inst
@@ -168,6 +172,9 @@ static func setup_input() -> void:
 		"move_right": [KEY_D, KEY_RIGHT],
 		"jump": [KEY_SPACE],
 		"interact": [KEY_E],
+		"pause": [KEY_ESCAPE],
+		"dash": [KEY_SHIFT],
+		"sniff": [KEY_Q],
 	}
 	for action: String in bindings:
 		if not InputMap.has_action(action):

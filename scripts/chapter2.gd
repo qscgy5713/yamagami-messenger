@@ -5,6 +5,30 @@ extends LevelBase
 
 const SOURCES_FOR_GATE := 2
 const SOURCES_TOTAL := 3
+const KODAMA_LINES := {
+	"intro": [
+		{"who": "木靈", "text": "神使大人,河水漲起來的時候,御守被沖散了……"},
+		{"who": "木靈", "text": "有的漂到了池中的小島,有的在望樓上,還有兩座石台隔著很遠的距離。"},
+		{"who": "木靈", "text": "拜託你,找回來吧。"},
+	],
+	"waiting": [{"who": "木靈", "text": "還沒找齊呢。按住 Q,御守的光會透過牆壁指給你看。"}],
+	"done": [{"who": "木靈", "text": "謝謝你!水之社的封印,我來解開。"}],
+}
+const BOSS_LINES := {
+	"start": [
+		{"who": "祭典的殘影", "text": "祭典還沒結束……誰也不許離開。"},
+		{"who": "祭典的殘影", "text": "水會一直漲,到所有人都留下為止。"},
+	],
+	"defeated": [
+		{"who": "祭典的殘影", "text": "……水,終於流動了。"},
+		{"who": "祭典的殘影", "text": "啊,祭典的燈籠,熄了。"},
+	],
+}
+const OUTRO_LINES := [
+	{"who": "", "text": "水聲漸漸平息,蟬鳴依舊。夏天的水脈重新流動。"},
+	{"who": "白狐", "text": "做得好。接下來是秋天的紅葉之社,那裡的山霧很濃,小心別迷了路。"},
+]
+const PURIFY_LINES := ["池面泛起了漣漪", "望樓上的老樹抽出新芽", "最後一處的水脈通了"]
 const NEXT_SCENE := "res://scenes/chapter3.tscn"
 const RIVER_Z_MIN := 10.0
 const RIVER_Z_MAX := 22.0
@@ -18,6 +42,7 @@ var raft: AnimatableBody3D
 var plate_latched := false
 var crossed := false
 var completed := false
+var gate_open := false
 
 
 # ---------- 基底的覆寫 ----------
@@ -40,6 +65,14 @@ func _environment_config() -> Dictionary:
 
 func _bloom_color() -> Color:
 	return Color("7fa65c")
+
+
+func _chapter_title() -> PackedStringArray:
+	return PackedStringArray(["第二章", "水之社"])
+
+
+func _purify_line(count: int) -> String:
+	return PURIFY_LINES[count - 1] if count >= 1 and count <= PURIFY_LINES.size() else ""
 
 
 func _start_position() -> Vector3:
@@ -65,6 +98,7 @@ func _build_level() -> void:
 	_build_hall()
 	_build_scenery()
 	_scatter_vegetation()
+	_build_quest()
 
 
 func _is_free(p: Vector3) -> bool:
@@ -91,14 +125,31 @@ func _is_free(p: Vector3) -> bool:
 	return true
 
 
-func _on_source_purified(_s: LevelBase.Source) -> void:
-	if purified == SOURCES_FOR_GATE:
+func _build_quest() -> void:
+	var dash_charm := _build_dash_platforms(Vector3(-27, 0.5, 36))
+	var spots: Array[Vector3] = [Vector3(-22.0, 0.8, -6.5), Vector3(25.0, 4.8, -4.0), dash_charm]
+	var seek_spots: Array[Vector3] = [Vector3(28, 0.8, 40), Vector3(-27, 0.8, -45), Vector3(27, 0.8, -48)]
+	_setup_seek(seek_spots)
+	var pylon_spots: Array[Vector3] = [Vector3(-8, 0, -29.5), Vector3(8, 0, -29.5), Vector3(0, 0, -42)]
+	_setup_boss(Vector3(0, 3.2, -35), pylon_spots, Rect2(-13, -46, 26, 19), BOSS_LINES)
+	_setup_quest(Vector3(2.4, 0.0, 32.0), spots, KODAMA_LINES)
+
+
+func _on_progress_changed() -> void:
+	if purified >= SOURCES_FOR_GATE and not gate_open:
+		gate_open = true
 		_move_door(gate_door, -3.2)
 		_flash("庭院的石門開啟了")
-	if purified >= SOURCES_TOTAL:
-		_move_door(hall_door, -2.2)
-		_flash("主殿的門開啟了")
 	_update_hud()
+
+
+func _on_boss_defeated() -> void:
+	_move_door(hall_door, -2.2)
+	_flash("主殿的門開啟了")
+
+
+func _on_source_purified(_s: LevelBase.Source) -> void:
+	_on_progress_changed()
 
 
 func _level_process(_delta: float) -> void:
@@ -127,15 +178,6 @@ func _build_ground() -> void:
 		add_child(WB.box_body(p[0], m_ground, p[1]))
 	_build_surroundings(30.0, -55.0, 45.0, WB.tex("Ground037", 0.3, Color("c4c9b2")))
 	add_child(WB.box_visual(Vector3(60, 1, 112), WB.tex("Ground037", 0.1, Color("7d8268")), Vector3(0, -4.5, -5)))
-
-
-func _water_material() -> StandardMaterial3D:
-	var water := WB.material(WB.C_WATER)
-	water.roughness = 0.15
-	water.metallic = 0.2
-	water.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	water.albedo_color.a = 0.82
-	return water
 
 
 func _build_river() -> void:
@@ -265,7 +307,10 @@ func _on_hall_entered(body: Node3D) -> void:
 	hud_msg.text = "第二章・水之社 完"
 	hud_msg.visible = true
 	hud_hint.text = ""
-	await get_tree().create_timer(2.5).timeout
+	await get_tree().create_timer(1.8).timeout
+	hud_msg.visible = false
+	await _say(OUTRO_LINES)
+	player.controls_locked = true
 	await _fade(1.0, 1.4)
 	get_tree().change_scene_to_file(NEXT_SCENE)
 
@@ -274,9 +319,9 @@ func _update_hud() -> void:
 	hud_title.text = "第二章・水之社  淨化 %d / %d" % [purified, SOURCES_TOTAL]
 	var hint := "搭木筏渡河,找出被妖氣污染的神木"
 	if purified >= SOURCES_TOTAL:
-		hint = "前往主殿"
+		hint = _final_hint()
 	elif purified >= SOURCES_FOR_GATE:
 		hint = "庭院裡還有一處:踩上石板打開石籠"
 	elif crossed:
 		hint = "找出被妖氣污染的神木:池中的小島、東邊的望樓"
-	hud_hint.text = hint
+	_set_hint(hint)

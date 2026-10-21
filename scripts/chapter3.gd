@@ -4,6 +4,30 @@ extends LevelBase
 ## 新機關:迷霧(淨化一處降低一次 fog_density)。
 
 const SOURCES_TOTAL := 3
+const KODAMA_LINES := {
+	"intro": [
+		{"who": "木靈", "text": "霧這麼濃,我找不到我的御守了……"},
+		{"who": "木靈", "text": "聽說有一枚掉進了石牆迷宮,一枚在東邊高台,另一枚在兩座隔得很遠的石台上。"},
+		{"who": "木靈", "text": "神使大人,嗅覺能穿過霧,試試按住 Q。"},
+	],
+	"waiting": [{"who": "木靈", "text": "霧還沒散盡,御守還在外頭等著呢。"}],
+	"done": [{"who": "木靈", "text": "找到了!紅葉之社的封印,現在可以解開了。"}],
+}
+const BOSS_LINES := {
+	"start": [
+		{"who": "霧中的回憶", "text": "不要往前走了……前面什麼都沒有。"},
+		{"who": "霧中的回憶", "text": "忘記不好嗎?那些事,都忘了吧。"},
+	],
+	"defeated": [
+		{"who": "霧中的回憶", "text": "……霧散了,我想起來了。"},
+		{"who": "霧中的回憶", "text": "原來我也曾是這座山的一部分。"},
+	],
+}
+const OUTRO_LINES := [
+	{"who": "", "text": "霧散了,楓葉在風裡輕輕搖晃。"},
+	{"who": "白狐", "text": "最後的社在雪裡,那裡的燈火都熄了。點亮它們,冰封的東西就會鬆開。"},
+]
+const PURIFY_LINES := ["霧散了一些", "霧又淡了", "霧完全散去了"]
 const NEXT_SCENE := "res://scenes/chapter4.tscn"
 const FOG_START := 0.03
 const FOG_STEP := 0.008
@@ -14,6 +38,7 @@ var hall_door: StaticBody3D
 var plate_latched := false
 var leaf_fall: CPUParticles3D
 var completed := false
+var gate_open := false
 
 
 # ---------- 基底的覆寫 ----------
@@ -39,6 +64,14 @@ func _bloom_color() -> Color:
 	return Color("c4552f")
 
 
+func _chapter_title() -> PackedStringArray:
+	return PackedStringArray(["第三章", "紅葉之社"])
+
+
+func _purify_line(count: int) -> String:
+	return PURIFY_LINES[count - 1] if count >= 1 and count <= PURIFY_LINES.size() else ""
+
+
 func _start_position() -> Vector3:
 	return Vector3(0.0, 1.0, 40.0)
 
@@ -62,6 +95,7 @@ func _build_level() -> void:
 	_build_hall()
 	_build_scenery()
 	_scatter_vegetation()
+	_build_quest()
 	_build_leaf_fall()
 
 
@@ -127,13 +161,32 @@ func _level_process(_delta: float) -> void:
 	leaf_fall.global_position = player.global_position + Vector3(0.0, 9.0, 0.0)
 
 
+func _build_quest() -> void:
+	var dash_charm := _build_dash_platforms(Vector3(-27, 0.5, 36))
+	var spots: Array[Vector3] = [Vector3(-18.0, 0.8, 0.0), Vector3(25.0, 4.8, -4.0), dash_charm]
+	var seek_spots: Array[Vector3] = [Vector3(27, 0.8, 12), Vector3(-27, 0.8, -20), Vector3(28, 0.8, 38)]
+	_setup_seek(seek_spots)
+	var pylon_spots: Array[Vector3] = [Vector3(-8, 0, -29.5), Vector3(8, 0, -29.5), Vector3(0, 0, -42)]
+	_setup_boss(Vector3(0, 3.2, -35), pylon_spots, Rect2(-13, -46, 26, 19), BOSS_LINES)
+	_setup_quest(Vector3(2.4, 0.0, 32.0), spots, KODAMA_LINES)
+
+
+func _on_progress_changed() -> void:
+	if _all_ready() and not gate_open:
+		gate_open = true
+		_move_door(gate_door, -3.2)
+		_flash("石門開啟了")
+	_update_hud()
+
+
+func _on_boss_defeated() -> void:
+	_move_door(hall_door, -2.2)
+	_flash("主殿的門開啟了")
+
+
 func _on_source_purified(_s: LevelBase.Source) -> void:
 	_set_fog(FOG_START - FOG_STEP * purified)
-	if purified >= SOURCES_TOTAL:
-		_move_door(gate_door, -3.2)
-		_move_door(hall_door, -2.2)
-		_flash("霧散了,石門與主殿都開啟了")
-	_update_hud()
+	_on_progress_changed()
 
 
 # ---------- 地形 ----------
@@ -256,9 +309,10 @@ func _on_hall_entered(body: Node3D) -> void:
 	hud_msg.text = "第三章・紅葉之社 完"
 	hud_msg.visible = true
 	hud_hint.text = ""
-	await get_tree().create_timer(2.5).timeout
-	if not ResourceLoader.exists(NEXT_SCENE):
-		return  # 第四章尚未製作
+	await get_tree().create_timer(1.8).timeout
+	hud_msg.visible = false
+	await _say(OUTRO_LINES)
+	player.controls_locked = true
 	await _fade(1.0, 1.4)
 	get_tree().change_scene_to_file(NEXT_SCENE)
 
@@ -267,9 +321,9 @@ func _update_hud() -> void:
 	hud_title.text = "第三章・紅葉之社  淨化 %d / %d" % [purified, SOURCES_TOTAL]
 	var hint := "霧中有三處妖氣:西邊石牆迷宮、東邊高台、東南角的石籠"
 	if purified >= SOURCES_TOTAL:
-		hint = "前往主殿"
+		hint = _final_hint()
 	elif plate_latched:
 		hint = "石籠已打開;還有 %d 處妖氣" % (SOURCES_TOTAL - purified)
 	elif purified > 0:
 		hint = "還有 %d 處妖氣;石籠的石板在西南角" % (SOURCES_TOTAL - purified)
-	hud_hint.text = hint
+	_set_hint(hint)

@@ -4,6 +4,30 @@ extends LevelBase
 ## 新機關:點燈(靠近未點亮的石燈籠按 E)。
 
 const SOURCES_TOTAL := 3
+const KODAMA_LINES := {
+	"intro": [
+		{"who": "木靈", "text": "雪把我的御守都埋起來了……"},
+		{"who": "木靈", "text": "冰牆裡面一枚,高台上一枚,還有一枚在遠遠的石台。"},
+		{"who": "木靈", "text": "燈火一亮,御守的光也會跟著亮起來。"},
+	],
+	"waiting": [{"who": "木靈", "text": "雪還在下,御守還沒回來。"}],
+	"done": [{"who": "木靈", "text": "御守都找齊了,雪之社的封印,我來解開。"}],
+}
+const BOSS_LINES := {
+	"start": [
+		{"who": "凍結的燈火", "text": "好冷……好安靜……"},
+		{"who": "凍結的燈火", "text": "就這樣睡去吧,雪會蓋住一切。"},
+	],
+	"defeated": [
+		{"who": "凍結的燈火", "text": "……燈,亮了。"},
+		{"who": "凍結的燈火", "text": "好暖和。謝謝你,小小的神使。"},
+	],
+}
+const OUTRO_LINES := [
+	{"who": "", "text": "雪停了,石燈籠一盞一盞亮了起來。"},
+	{"who": "白狐", "text": "四季的社都醒了。去山頂吧,他在等你。"},
+]
+const PURIFY_LINES := ["寒梅在雪裡綻開了", "高台上的老樹醒了", "最後一處的冰雪消融了"]
 const NEXT_SCENE := "res://scenes/finale.tscn"
 const LANTERN_RANGE := 2.2
 ## 雪地:草地貼圖乘上超過 1 的色,洗成近白(沒有雪的貼圖,先這樣處理)。
@@ -15,6 +39,7 @@ var hall_door: StaticBody3D
 var ice_wall: StaticBody3D
 var plate_latched := false
 var completed := false
+var gate_open := false
 var snow: CPUParticles3D
 var lanterns: Array[Dictionary] = []  # {lamp, light, lit}
 var ice_melted := false
@@ -45,6 +70,14 @@ func _bloom_color() -> Color:
 	return Color("e8b7c8")  # 淨化後綻開的寒梅
 
 
+func _chapter_title() -> PackedStringArray:
+	return PackedStringArray(["第四章", "雪之社"])
+
+
+func _purify_line(count: int) -> String:
+	return PURIFY_LINES[count - 1] if count >= 1 and count <= PURIFY_LINES.size() else ""
+
+
 func _start_position() -> Vector3:
 	return Vector3(0.0, 1.0, 40.0)
 
@@ -72,6 +105,7 @@ func _build_level() -> void:
 	_build_hall()
 	_build_scenery()
 	_scatter_vegetation(0.6)
+	_build_quest()
 	_build_snowfall()
 
 
@@ -95,18 +129,36 @@ func _is_free(p: Vector3) -> bool:
 	return true
 
 
-func _on_source_purified(_s: LevelBase.Source) -> void:
-	if purified >= SOURCES_TOTAL:
+func _build_quest() -> void:
+	var dash_charm := _build_dash_platforms(Vector3(-27, 0.5, 36))
+	var spots: Array[Vector3] = [Vector3(-25.0, 0.8, 5.5), Vector3(25.0, 4.8, -4.0), dash_charm]
+	var seek_spots: Array[Vector3] = [Vector3(27, 0.8, 12), Vector3(-27, 0.8, -20), Vector3(28, 0.8, 38)]
+	_setup_seek(seek_spots)
+	var pylon_spots: Array[Vector3] = [Vector3(-8, 0, -29.5), Vector3(8, 0, -29.5), Vector3(0, 0, -42)]
+	_setup_boss(Vector3(0, 3.2, -35), pylon_spots, Rect2(-13, -46, 26, 19), BOSS_LINES)
+	_setup_quest(Vector3(2.4, 0.0, 32.0), spots, KODAMA_LINES)
+
+
+func _on_progress_changed() -> void:
+	if _all_ready() and not gate_open:
+		gate_open = true
 		_move_door(gate_door, -3.2)
-		_move_door(hall_door, -2.2)
-		_flash("石門與主殿都開啟了")
+		_flash("石門開啟了")
 	_update_hud()
+
+
+func _on_boss_defeated() -> void:
+	_move_door(hall_door, -2.2)
+	_flash("主殿的門開啟了")
+
+
+func _on_source_purified(_s: LevelBase.Source) -> void:
+	_on_progress_changed()
 
 
 func _level_process(_delta: float) -> void:
 	snow.global_position = player.global_position + Vector3(0.0, 10.0, 0.0)
 	if hud_prompt.visible:
-		hud_prompt.text = "按 E 淨化"
 		return
 	if player.controls_locked or not prompt_enabled:
 		return
@@ -312,9 +364,10 @@ func _on_hall_entered(body: Node3D) -> void:
 	hud_msg.text = "第四章・雪之社 完"
 	hud_msg.visible = true
 	hud_hint.text = ""
-	await get_tree().create_timer(2.5).timeout
-	if not ResourceLoader.exists(NEXT_SCENE):
-		return  # 終章尚未製作
+	await get_tree().create_timer(1.8).timeout
+	hud_msg.visible = false
+	await _say(OUTRO_LINES)
+	player.controls_locked = true
 	await _fade(1.0, 1.4)
 	get_tree().change_scene_to_file(NEXT_SCENE)
 
@@ -323,10 +376,10 @@ func _update_hud() -> void:
 	hud_title.text = "第四章・雪之社  淨化 %d / %d" % [purified, SOURCES_TOTAL]
 	var hint := "雪夜三處妖氣:西側被冰封(點亮兩盞石燈籠)、東邊高台、東南角石籠"
 	if purified >= SOURCES_TOTAL:
-		hint = "前往主殿"
+		hint = _final_hint()
 	elif not ice_melted:
 		hint = "西側冰牆需要點亮 %d 盞石燈籠(靠近按 E)" % _unlit_count()
-	hud_hint.text = hint
+	_set_hint(hint)
 
 
 func _unlit_count() -> int:
