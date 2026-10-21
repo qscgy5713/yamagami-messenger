@@ -27,8 +27,14 @@ yamagami-messenger/
 ├── project.godot
 ├── README.md
 ├── assets/
-│   ├── models/           # 鳥居、Quaternius 樹木植被(來源與授權見 doc/assets.md)
-│   └── textures/         # ambientCG PBR 材質(CC0)
+│   ├── models/           # 鳥居、障子、Quaternius 樹木植被(來源與授權見 doc/assets.md)
+│   ├── fonts/            # Noto Serif TC(OFL)
+│   ├── textures/         # ambientCG PBR 材質(CC0)
+│   ├── particles/        # Kenney 粒子貼圖(CC0)
+│   ├── shaders/          # 妖氣 / 木靈身體 shader
+│   └── audio/            # 日式配樂(tools/make_music.py 合成)
+├── tools/
+│   └── make_music.py     # 合成配樂(需 python3 + ffmpeg)
 ├── scenes/
 │   ├── title.tscn        # 主場景(標題畫面)
 │   ├── prologue.tscn     # 序章

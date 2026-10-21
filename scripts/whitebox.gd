@@ -18,7 +18,7 @@ const C_CREAM := Color("efe6d6")
 const C_MIASMA := Color("4b3a63")
 const C_MOUNTAIN := Color("8fa0ad")
 
-const UI_FONT_PATH := "res://assets/fonts/NotoSansTC-Regular.otf"
+const SERIF_FONT_PATH := "res://assets/fonts/NotoSerifTC.ttf"  # 明朝體風格的可變字重字型(OFL)
 const TEX_DIR := "res://assets/textures/"
 const NATURE_DIR := "res://assets/models/nature/"
 const LEAF_MASK_PATH := "res://assets/models/nature/Leaves_TwistedTree.png"
@@ -38,23 +38,34 @@ static func material(color: Color, emissive := false, energy: float = 0.8) -> St
 	return mat
 
 
-static var _ui_font: FontFile
+static var _serif_cache := {}
 
 
-static func font() -> FontFile:
-	if _ui_font == null:
-		_ui_font = load(UI_FONT_PATH) as FontFile
-	return _ui_font
+static func serif(weight: int = 500, spacing: int = 0) -> FontVariation:
+	## 襯線(明朝)字型,依字重與字距快取;標題用粗體加寬字距,內文用中等字重。
+	var key := weight * 1000 + spacing
+	if _serif_cache.has(key):
+		return _serif_cache[key]
+	var fv := FontVariation.new()
+	fv.base_font = load(SERIF_FONT_PATH) as FontFile
+	var tag := TextServerManager.get_primary_interface().name_to_tag("wght")
+	fv.variation_opentype = {tag: float(weight)}
+	fv.spacing_glyph = spacing
+	_serif_cache[key] = fv
+	return fv
 
 
-static func label(parent: Node, font_size: int) -> Label:
-	## HUD / 對話共用的 Label:內嵌 Noto Sans TC(Godot 預設字型沒有中日文字)、米白字加墨色描邊。
+static func label(parent: Node, font_size: int, weight: int = 500, spacing: int = 0) -> Label:
+	## HUD / 對話共用的 Label:Noto Serif TC(Godot 預設字型沒有中日文字)、米白字、細墨色描邊加柔和陰影。
 	var l := Label.new()
-	l.add_theme_font_override("font", font())
+	l.add_theme_font_override("font", serif(weight, spacing))
 	l.add_theme_font_size_override("font_size", font_size)
 	l.add_theme_color_override("font_color", C_CREAM)
-	l.add_theme_color_override("font_outline_color", C_SUMI)
-	l.add_theme_constant_override("outline_size", 6)
+	l.add_theme_color_override("font_outline_color", Color(C_SUMI, 0.9))
+	l.add_theme_constant_override("outline_size", 5)
+	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.45))
+	l.add_theme_constant_override("shadow_offset_x", 2)
+	l.add_theme_constant_override("shadow_offset_y", 3)
 	parent.add_child(l)
 	return l
 

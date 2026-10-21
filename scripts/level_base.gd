@@ -16,6 +16,7 @@ class Source:
 const CAM_PITCH_DEFAULT := 0.71  ## 約 41°,與舊版固定視角相同
 const CAM_DIST_DEFAULT := 9.9
 const PARTICLE_DIR := "res://assets/particles/"
+const SHOJI_SCALE := 100.0  ## shoji.glb 以公分為單位(寬 0.04),放大 100 倍成 4 公尺寬
 const INTERACT_RANGE := 2.5
 const FALL_Y := -3.0
 const SCATTER_SEED := 20261021
@@ -78,11 +79,21 @@ var _cam_ready := false
 var cam_yaw := 0.0
 var cam_pitch := CAM_PITCH_DEFAULT
 var cam_dist := CAM_DIST_DEFAULT
-var trees: Array[Dictionary] = []  # {meshes, center, radius, faded}:樹冠擋住鏡頭時變半透明
+var trees: Array[Dictionary] = []  # {meshes, center, radius}:樹冠、鳥居擋住鏡頭時變半透明
 var m_plaster: Material
+var m_wood_dark: Material
+var m_wood_light: Material
+var m_thatch: Material
+var m_paper: Material
+const MUSIC_DIR := "res://assets/audio/"
+const MUSIC_BY_LEVEL := {"title": "title", "prologue": "title", "chapter1": "spring", "chapter2": "summer", "chapter3": "autumn", "chapter4": "winter", "finale": "finale"}
+const MUSIC_VOLUME_DB := -9.0
+var music: AudioStreamPlayer
+var music_track := ""
+var _music_tween: Tween
+var _fade_state: Dictionary = {}  # GeometryInstance3D -> {cur, hold}:遮擋淡出狀態
 var swayers: Array[Dictionary] = []  # 隨風輕擺的草花:{node, phase, amp}
 var pause_layer: CanvasLayer
-var _faded: Dictionary = {}  # 目前被鏡頭擋住而半透明的 GeometryInstance3D
 var prompt_enabled := true
 
 var hud_title: Label
@@ -176,6 +187,31 @@ func _ready() -> void:
 	_fade(0.0, 1.2)
 	_show_title_card()
 	_start()
+	music = AudioStreamPlayer.new()
+	music.volume_db = -60.0
+	add_child(music)
+	_play_music(MUSIC_BY_LEVEL.get(get_script().resource_path.get_file().get_basename(), "title"))
+
+
+func _play_music(track: String) -> void:
+	## 配樂為循環的 ogg(tools/make_music.py 合成);換曲時舊曲淡出、新曲淡入。只保留一條淡入淡出 tween,避免互相拉扯音量。
+	if track == music_track or not ResourceLoader.exists(MUSIC_DIR + track + ".ogg"):
+		return
+	music_track = track
+	var stream := load(MUSIC_DIR + track + ".ogg") as AudioStreamOggVorbis
+	stream.loop = true
+	if _music_tween != null:
+		_music_tween.kill()
+	_music_tween = create_tween()
+	if music.playing:
+		_music_tween.tween_property(music, "volume_db", -60.0, 0.8)
+		_music_tween.tween_callback(func() -> void:
+			music.stream = stream
+			music.play())
+	else:
+		music.stream = stream
+		music.play()
+	_music_tween.tween_property(music, "volume_db", MUSIC_VOLUME_DB, 2.0)
 
 
 func _process(delta: float) -> void:
@@ -225,19 +261,16 @@ func _update_camera(delta: float) -> void:
 		camera.global_position = target
 		_cam_ready = true
 	camera.look_at(player.global_position + Vector3.UP, Vector3.UP)
-	_update_tree_fade()
 
 
-func _update_tree_fade() -> void:
+func _collect_tree_blockers(blocking: Dictionary) -> void:
 	var from := camera.global_position
 	var to := player.global_position + Vector3.UP
 	for t in trees:
 		var c: Vector3 = t["center"]
-		var want := Geometry3D.get_closest_point_to_segment(c, from, to).distance_to(c) < float(t["radius"])
-		if want != t["faded"]:
-			t["faded"] = want
+		if Geometry3D.get_closest_point_to_segment(c, from, to).distance_to(c) < float(t["radius"]):
 			for m: MeshInstance3D in t["meshes"]:
-				m.transparency = 0.8 if want else 0.0
+				blocking[m] = true
 
 
 # ---------- 鏡頭遮擋 ----------
@@ -261,12 +294,26 @@ func _update_occlusion() -> void:
 			for c in body.get_children():
 				if c is GeometryInstance3D:
 					blocking[c] = true
-	for g: GeometryInstance3D in _faded.keys():
-		if is_instance_valid(g) and not blocking.has(g):
-			g.transparency = 0.0
+	_collect_tree_blockers(blocking)
+	_apply_fades(blocking, get_process_delta_time())
+
+
+func _apply_fades(blocking: Dictionary, delta: float) -> void:
+	## 擋住鏡頭的物件平滑淡出(約 0.25 秒),不再擋時延遲 0.35 秒才淡回,避免在邊緣來回閃爍。
 	for g: GeometryInstance3D in blocking.keys():
-		g.transparency = 0.82
-	_faded = blocking
+		if not _fade_state.has(g):
+			_fade_state[g] = {"cur": 0.0, "hold": 0.0}
+	for g in _fade_state.keys():
+		if not is_instance_valid(g):
+			_fade_state.erase(g)
+			continue
+		var st: Dictionary = _fade_state[g]
+		st["hold"] = 0.35 if blocking.has(g) else maxf(float(st["hold"]) - delta, 0.0)
+		var goal := 1.0 if float(st["hold"]) > 0.0 else 0.0
+		st["cur"] = move_toward(float(st["cur"]), goal, delta / 0.25)
+		(g as GeometryInstance3D).transparency = float(st["cur"]) * 0.82
+		if goal == 0.0 and float(st["cur"]) == 0.0:
+			_fade_state.erase(g)
 
 
 # ---------- 木靈任務、御守、嗅覺 ----------
@@ -280,11 +327,22 @@ func _setup_quest(npc_pos: Vector3, charm_positions: Array[Vector3], lines: Dict
 		_build_charm(p)
 
 
+func _spirit_material(light: Color, dark: Color) -> ShaderMaterial:
+	## 木靈身體:與妖氣之主共用的煙霧流動貼圖 shader,換成明亮的白綠色,看起來像會呼吸的柔軟精靈。
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://assets/shaders/miasma_body.gdshader") as Shader
+	mat.set_shader_parameter("smoke", load(PARTICLE_DIR + "smoke_01.png"))
+	mat.set_shader_parameter("dark", dark)
+	mat.set_shader_parameter("light", light)
+	mat.set_shader_parameter("rim", Color("ffffff"))
+	return mat
+
+
 func _build_kodama(pos: Vector3) -> void:
 	## 木靈:白色圓潤的小精靈(以基本形狀組成),會輕輕晃動。
 	kodama = Node3D.new()
 	kodama.position = pos
-	var body_mat := WB.material(Color("eeeee2"), true, 0.25)
+	var body_mat := _spirit_material(Color("f2f1e6"), Color("c9d6c0"))
 	var body := SphereMesh.new()
 	body.radius = 0.32
 	body.height = 0.64
@@ -484,7 +542,7 @@ func _setup_seek(positions: Array[Vector3]) -> void:
 	for pos in positions:
 		var spirit := Node3D.new()
 		spirit.position = pos
-		var mat := WB.material(Color("cfe8c8"), true, 0.4)
+		var mat := _spirit_material(Color("e6f5df"), Color("a9cfa0"))
 		var body := SphereMesh.new()
 		body.radius = 0.22
 		body.height = 0.44
@@ -641,14 +699,21 @@ func _build_boss_body() -> Node3D:
 	model.scale = Vector3.ONE * BOSS_SCALE
 	model.position = Vector3(0, -1.5, 0)
 	root.add_child(model)
+	var body_mat := ShaderMaterial.new()
+	body_mat.shader = load("res://assets/shaders/miasma_body.gdshader") as Shader
+	body_mat.set_shader_parameter("smoke", load(PARTICLE_DIR + "smoke_01.png"))
 	for mi in model.find_children("*", "MeshInstance3D", true, false):
 		var inst := mi as MeshInstance3D
 		for k in inst.mesh.get_surface_count():
 			var mat := inst.mesh.surface_get_material(k) as StandardMaterial3D
 			if mat != null:
-				var dim := mat.duplicate() as StandardMaterial3D
-				dim.albedo_color = dim.albedo_color * Color(0.62, 0.55, 0.72)
-				inst.set_surface_override_material(k, dim)
+				var lum := mat.albedo_color.get_luminance()
+				if lum > 0.5:
+					inst.set_surface_override_material(k, body_mat)  # 白色的身體 → 流動的妖氣貼圖
+				else:
+					var dim := mat.duplicate() as StandardMaterial3D
+					dim.albedo_color = dim.albedo_color * Color(0.62, 0.55, 0.72)
+					inst.set_surface_override_material(k, dim)
 	var anim := model.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	if anim != null:
 		var idle := "CharacterArmature|Flying_Idle"
@@ -687,6 +752,7 @@ func _pylons_lit() -> int:
 
 func _start_boss() -> void:
 	boss_phase = 1
+	_play_music("boss")
 	boss_orb.visible = true
 	boss_orb.scale = Vector3.ONE * 0.05
 	create_tween().tween_property(boss_orb, "scale", Vector3.ONE, 1.5)
@@ -763,6 +829,7 @@ func _end_boss() -> void:
 	tw.tween_property(boss_light, "light_energy", 0.0, 1.6)
 	await tw.finished
 	boss_orb.hide()
+	_play_music(MUSIC_BY_LEVEL.get(get_script().resource_path.get_file().get_basename(), "title"))
 	await _say(boss_lines["defeated"])
 	_on_boss_defeated()
 	if has_method("_update_hud"):
@@ -810,10 +877,12 @@ func _show_title_card() -> void:
 	box.modulate.a = 0.0
 	layer.add_child(box)
 	for i in lines.size():
-		var l := WB.label(box, 30 if i == 0 else 64)
+		var l := WB.label(box, 30 if i == 0 else 68, 500 if i == 0 else 800, 12 if i == 0 else 22)
 		l.text = lines[i]
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		l.add_theme_constant_override("outline_size", 8)
+		l.add_theme_constant_override("outline_size", 7)
+		if i == 0:
+			l.add_theme_color_override("font_color", Color("f1dcae"))
 	var tw := create_tween()
 	tw.tween_interval(0.8)
 	tw.tween_property(box, "modulate:a", 1.0, 1.0)
@@ -884,7 +953,7 @@ func _build_pause_menu() -> void:
 		var b := Button.new()
 		b.text = it[0]
 		b.custom_minimum_size = Vector2(260, 48)
-		b.add_theme_font_override("font", WB.font())
+		b.add_theme_font_override("font", WB.serif(700, 4))
 		b.add_theme_font_size_override("font_size", 22)
 		b.add_theme_color_override("font_color", WB.C_CREAM)
 		b.add_theme_color_override("font_hover_color", WB.C_GOLD)
@@ -932,12 +1001,16 @@ func _water_material() -> StandardMaterial3D:
 
 func _setup_materials() -> void:
 	m_ground = WB.tex("Ground037", 0.3, Color("d6dcc6"))
-	m_path = WB.tex("Pathway004", 0.4)
+	m_path = WB.tex("PavingStones138", 0.4, Color("cfc8ba"))
 	m_paving = WB.tex("PavingStones138", 0.5)
 	m_stone = WB.tex("Rock064", 0.4)
-	m_stone_dark = WB.tex("Rock064", 0.4, Color("a9a9a9"))
+	m_stone_dark = WB.tex("Rock064", 0.3, Color("c2bcaf"))
 	m_wood = WB.tex("WoodFloor064", 0.5, Color("c8a58a"))
 	m_plaster = WB.tex("Plaster001", 0.35, Color("f1e6d2"))
+	m_wood_dark = WB.tex("Wood051", 0.5)
+	m_wood_light = WB.tex("Wood067", 0.6, Color("d9b58f"))
+	m_thatch = WB.tex("ThatchedRoof001A", 0.35, Color("d8cbb0"))
+	m_paper = WB.material(Color("f4efe4"))
 	m_paint_red = WB.tex("WoodFloor064", 0.5, Color("e0654a"))
 	m_roof = WB.tex("RoofingTiles013A", 0.5, Color("8a8a92"))
 
@@ -1018,7 +1091,7 @@ func _build_mountains(tint_far: Color = Color("e6dfd2")) -> void:
 			peak.height = l[2]
 			peak.radial_segments = 5
 			peak.rings = 1
-			add_child(WB.mesh_instance(peak, WB.material(tint), Vector3(x + l[0] * 0.15, l[2] * 0.5 - 2.0, l[0])))
+			add_child(WB.mesh_instance(peak, WB.tex("Rock064", 0.03, tint), Vector3(x + l[0] * 0.15, l[2] * 0.5 - 2.0, l[0])))
 
 
 # ---------- 玩家、HUD、對話、轉場 ----------
@@ -1034,17 +1107,17 @@ func _build_player() -> void:
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
-	hud_title = WB.label(layer, 28)
+	hud_title = WB.label(layer, 28, 700, 3)
 	hud_title.position = Vector2(24, 16)
 	hud_hint = WB.label(layer, 18)
 	hud_hint.position = Vector2(24, 60)
-	hud_prompt = WB.label(layer, 24)
+	hud_prompt = WB.label(layer, 24, 700, 3)
 	hud_prompt.text = "按 E 淨化"
 	hud_prompt.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	hud_prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	hud_prompt.offset_top = -140.0
 	hud_prompt.visible = false
-	hud_msg = WB.label(layer, 44)
+	hud_msg = WB.label(layer, 44, 800, 8)
 	hud_msg.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	hud_msg.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	hud_msg.visible = false
@@ -1146,6 +1219,36 @@ func _make_tree(pos: Vector3, leaf_mat: Material, variant: int, tree_scale: floa
 	add_child(trunk)
 
 
+func _make_path(size: Vector3, pos: Vector3, min_z := -INF) -> void:
+	## 參道:石板路面,兩側不規則嵌入小石與草叢,邊緣不再是生硬的直線。min_z 以北(更小的 z)不放裝飾,避開庭院鋪石與主殿。
+	add_child(WB.box_visual(size, m_path, pos))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = SCATTER_SEED + int(pos.z * 7.0) + int(size.z)
+	var rocks := ["RockPath_Round_Small_1", "RockPath_Round_Small_2", "RockPath_Round_Small_3"]
+	var z := maxf(pos.z - size.z * 0.5, min_z)
+	while z < pos.z + size.z * 0.5:
+		for side in [-1.0, 1.0]:
+			var x: float = pos.x + side * (size.x * 0.5 + rng.randf_range(0.2, 0.7))
+			var inst := _load_scene(rocks[rng.randi() % rocks.size()]).instantiate() as Node3D
+			inst.position = Vector3(x, _ground_y(Vector3(x, 0, z)), z)
+			inst.rotation.y = rng.randf_range(0.0, TAU)
+			inst.scale = Vector3.ONE * rng.randf_range(0.9, 1.4)
+			add_child(inst)
+			if rng.randf() < 0.3:
+				var g := _load_scene("Grass_Common_Short").instantiate() as Node3D
+				g.position = Vector3(x + side * rng.randf_range(0.2, 0.8), _ground_y(Vector3(x, 0, z)), z + rng.randf_range(-0.4, 0.4))
+				g.scale = Vector3.ONE * rng.randf_range(0.9, 1.3)
+				add_child(g)
+		z += rng.randf_range(1.8, 3.0)
+
+
+func _make_torii(pos: Vector3, torii_scale := 1.0) -> void:
+	## 所有鳥居都走這裡:橫樑會擋住從後方跟拍的鏡頭,所以登記進遮擋半透明清單(中心與半徑隨縮放)。
+	var torii := WB.torii(pos, torii_scale)
+	add_child(torii)
+	trees.append({"meshes": [torii] as Array[MeshInstance3D], "center": pos + Vector3(0, 4.5 * torii_scale, 0), "radius": 2.8 * torii_scale})
+
+
 func _register_tree(tree: Node3D) -> void:
 	var meshes: Array[MeshInstance3D] = []
 	var box := AABB()
@@ -1158,7 +1261,7 @@ func _register_tree(tree: Node3D) -> void:
 		first = false
 	if meshes.is_empty():
 		return
-	trees.append({"meshes": meshes, "center": box.get_center(), "radius": maxf(box.size.x, box.size.z) * 0.4, "faded": false})
+	trees.append({"meshes": meshes, "center": box.get_center(), "radius": maxf(box.size.x, box.size.z) * 0.4})
 
 
 func _sprite_particles(tex_name: String, tint: Color, additive: bool, amount: int, lifetime: float, scale_range: Vector2, ang_vel: float, radius: float, rise: float, fade := true, no_depth := false) -> CPUParticles3D:
@@ -1241,7 +1344,7 @@ func _make_wall(size: Vector3, pos: Vector3) -> StaticBody3D:
 		var t := (float(i) / float(maxi(posts - 1, 1)) - 0.5) * (length - 0.4)
 		var post_size := Vector3(0.4, wall_h, size.z + 0.16) if along_x else Vector3(size.x + 0.16, wall_h, 0.4)
 		var post_pos := Vector3(t, -size.y * 0.5 + base_h + wall_h * 0.5, 0) if along_x else Vector3(0, -size.y * 0.5 + base_h + wall_h * 0.5, t)
-		body.add_child(WB.box_visual(post_size, m_paint_red, post_pos))
+		body.add_child(WB.box_visual(post_size, m_wood_dark, post_pos))
 	return body
 
 
@@ -1296,39 +1399,71 @@ func _dress_block(center: Vector3, size_xz: Vector2, top_y: float, seed_offset :
 
 
 func _build_shrine_hall() -> StaticBody3D:
-	## 主殿:灰泥牆(ambientCG Plaster001)+ 朱漆柱樑 + 切妻瓦屋頂。回傳封住正面的木門。
-	var door_mat := WB.tex("WoodFloor064", 0.5, Color("7a3a30"))
+	## 神社本殿(日式):白灰泥牆 + 深色木柱樑 + 障子 + 茅葺屋頂,屋脊有千木與鰹木,門前掛注連繩、擺賽錢箱。回傳封住正面的木門。
 	add_child(WB.box_body(Vector3(4, 6, 6), m_plaster, Vector3(-4, 3, -48)))
 	add_child(WB.box_body(Vector3(4, 6, 6), m_plaster, Vector3(4, 3, -48)))
 	add_child(WB.box_body(Vector3(12, 6, 1), m_plaster, Vector3(0, 3, -51.5)))
-	add_child(WB.box_body(Vector3(4, 2, 0.8), m_plaster, Vector3(0, 5, -45.4)))
-	# 朱漆柱與橫樑(只是外觀)。
+	add_child(WB.box_body(Vector3(4, 2, 0.8), m_wood_dark, Vector3(0, 5, -45.4)))
+	# 木柱、長押(橫樑)、地覆(底梁)。
 	for x: float in [-6.0, -2.0, 2.0, 6.0]:
-		add_child(WB.box_visual(Vector3(0.6, 6.4, 0.6), m_paint_red, Vector3(x, 3.2, -44.8)))
+		add_child(WB.box_visual(Vector3(0.5, 6.0, 0.5), m_wood_dark, Vector3(x, 3.0, -44.85)))
 	for x: float in [-6.0, 6.0]:
-		add_child(WB.box_visual(Vector3(0.6, 6.4, 0.6), m_paint_red, Vector3(x, 3.2, -51.2)))
-	add_child(WB.box_visual(Vector3(12.8, 0.45, 0.6), m_paint_red, Vector3(0, 5.8, -44.8)))
-	add_child(WB.box_visual(Vector3(12.8, 0.3, 0.5), m_paint_red, Vector3(0, 4.2, -44.8)))
+		add_child(WB.box_visual(Vector3(0.5, 6.0, 0.5), m_wood_dark, Vector3(x, 3.0, -51.2)))
+	add_child(WB.box_visual(Vector3(12.6, 0.4, 0.55), m_wood_dark, Vector3(0, 5.55, -44.85)))
+	add_child(WB.box_visual(Vector3(12.6, 0.3, 0.5), m_wood_dark, Vector3(0, 0.45, -44.85)))
 	for x: float in [-6.0, 6.0]:
-		add_child(WB.box_visual(Vector3(0.6, 0.45, 6.8), m_paint_red, Vector3(x, 5.8, -48)))
-	# 石基座(外觀,不影響通行)。
-	add_child(WB.box_visual(Vector3(13.4, 0.35, 0.9), m_stone_dark, Vector3(0, 0.17, -44.4)))
-	# 屋頂:瓦面稜柱 + 屋簷板 + 棟,放進 StaticBody 讓鏡頭遮擋時可半透明。
+		add_child(WB.box_visual(Vector3(0.5, 0.4, 6.8), m_wood_dark, Vector3(x, 5.55, -48)))
+	# 兩側牆面前的障子(Quaternius 日式門,CC0),各蓋住一段正面。
+	var shoji := load("res://assets/models/buildings/shoji.glb") as PackedScene
+	for x: float in [-4.0, 4.0]:
+		var panel := shoji.instantiate() as Node3D
+		panel.scale = Vector3.ONE * SHOJI_SCALE
+		panel.position = Vector3(x, 0.55, -44.75)
+		add_child(panel)
+	# 縁側(木地板迴廊)與石基座、台階。
+	add_child(WB.box_visual(Vector3(14.6, 0.25, 1.8), m_wood_dark, Vector3(0, 0.12, -44.2)))
+	add_child(WB.box_visual(Vector3(15.4, 0.3, 9.4), m_stone_dark, Vector3(0, 0.0, -48.2)))
+	add_child(WB.box_visual(Vector3(4.4, 0.2, 1.0), m_stone_dark, Vector3(0, 0.1, -43.0)))
+	# 屋頂:茅葺稜柱 + 厚屋簷。放進 StaticBody,鏡頭遮擋時可半透明。
 	var roof := StaticBody3D.new()
 	roof.position = Vector3(0, 6.0, -48)
 	var prism := PrismMesh.new()
-	prism.size = Vector3(17, 3.6, 10.8)
-	roof.add_child(WB.mesh_instance(prism, m_roof, Vector3(0, 1.8, 0)))
-	roof.add_child(WB.box_visual(Vector3(17, 0.35, 10.8), m_roof, Vector3(0, 0.15, 0)))
-	roof.add_child(WB.box_visual(Vector3(0.5, 0.35, 11.2), m_stone_dark, Vector3(0, 3.65, 0)))
+	prism.size = Vector3(17.5, 4.4, 11.6)
+	roof.add_child(WB.mesh_instance(prism, m_thatch, Vector3(0, 2.2, 0)))
+	roof.add_child(WB.box_visual(Vector3(17.5, 0.4, 11.6), m_thatch, Vector3(0, 0.1, 0)))
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(17, 3.6, 10.8)
+	box.size = Vector3(17, 4.0, 11.6)
 	shape.shape = box
-	shape.position = Vector3(0, 1.8, 0)
+	shape.position = Vector3(0, 2.0, 0)
 	roof.add_child(shape)
+	# 鰹木(屋脊上橫放的圓木)與千木(山牆頂交叉伸出的木條)。
+	for k in 5:
+		var log := CylinderMesh.new()
+		log.top_radius = 0.28
+		log.bottom_radius = 0.28
+		log.height = 1.5
+		var inst := WB.mesh_instance(log, m_wood_light, Vector3(0, 4.55, -3.6 + k * 1.8))
+		inst.rotation_degrees = Vector3(0, 0, 90)
+		roof.add_child(inst)
+	for zz: float in [-5.8, 5.8]:
+		for ang: float in [-28.0, 28.0]:
+			var chigi := WB.box_visual(Vector3(0.22, 3.2, 0.22), m_wood_light, Vector3(0, 5.1, zz))
+			chigi.rotation_degrees = Vector3(0, 0, ang)
+			roof.add_child(chigi)
 	add_child(roof)
-	var door := WB.box_body(Vector3(4, 4, 0.8), door_mat, Vector3(0, 2, -45.4))
+	# 注連繩(稻草繩)與紙垂,賽錢箱。
+	var rope := CylinderMesh.new()
+	rope.top_radius = 0.16
+	rope.bottom_radius = 0.16
+	rope.height = 4.4
+	var rope_inst := WB.mesh_instance(rope, m_thatch, Vector3(0, 4.35, -45.1))
+	rope_inst.rotation_degrees = Vector3(0, 0, 90)
+	add_child(rope_inst)
+	for x: float in [-1.5, 0.0, 1.5]:
+		add_child(WB.box_visual(Vector3(0.35, 0.8, 0.04), m_paper, Vector3(x, 3.75, -45.1)))
+	add_child(WB.box_visual(Vector3(1.6, 0.9, 0.9), m_wood_dark, Vector3(0, 0.55, -43.6)))
+	var door := WB.box_body(Vector3(4, 4, 0.8), m_wood_dark, Vector3(0, 2, -45.4))
 	add_child(door)
 	add_child(WB.box_body(Vector3(1.5, 1, 1), m_stone_dark, Vector3(0, 0.5, -49.8)))
 	return door

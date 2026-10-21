@@ -177,8 +177,8 @@ func _build_ground() -> void:
 
 
 func _build_path() -> void:
-	add_child(WB.box_visual(Vector3(5, 0.06, 38), m_path, Vector3(0, 0.03, 21)))
-	add_child(WB.box_visual(Vector3(5, 0.06, 60), m_path, Vector3(0, UPPER_Y + 0.03, -28)))
+	_make_path(Vector3(5, 0.06, 38), Vector3(0, 0.03, 21))
+	_make_path(Vector3(5, 0.06, 60), Vector3(0, UPPER_Y + 0.03, -28), -26.0)
 	add_child(WB.box_visual(Vector3(18, 0.06, 14), m_paving, Vector3(0, UPPER_Y + 0.04, -34)))
 	# 沿路點亮的石燈籠(第一對在移動目標旁)。
 	for z: float in [30.0, 20.0, 8.0]:
@@ -219,7 +219,7 @@ func _build_shrine() -> void:
 
 func _build_portal() -> void:
 	# 通往第一章的鳥居:未開啟時以不可見的牆擋住,長老對話結束後亮起。
-	add_child(WB.torii(Vector3(0.0, UPPER_Y, PORTAL_Z), 0.8))
+	_make_torii(Vector3(0.0, UPPER_Y, PORTAL_Z), 0.8)
 	portal_block = WB.invisible_wall(Vector3(9.0, 8.0, 0.8), Vector3(0.0, UPPER_Y + 4.0, PORTAL_Z))
 	add_child(portal_block)
 

@@ -30,7 +30,9 @@ func _ready() -> void:
 	style.bg_color = Color(WB.C_SUMI, 0.86)
 	style.border_color = WB.C_GOLD.darkened(0.2)
 	style.set_border_width_all(2)
-	style.set_corner_radius_all(4)
+	style.set_corner_radius_all(6)
+	style.shadow_color = Color(0, 0, 0, 0.45)
+	style.shadow_size = 12
 	style.content_margin_left = 32.0
 	style.content_margin_right = 32.0
 	style.content_margin_top = 18.0
@@ -41,9 +43,10 @@ func _ready() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
 	_panel.add_child(box)
-	_name_label = WB.label(box, 24)
+	_name_label = WB.label(box, 26, 800, 6)
 	_name_label.add_theme_color_override("font_color", WB.C_GOLD)
-	_text_label = WB.label(box, 26)
+	_text_label = WB.label(box, 27, 500, 2)
+	_text_label.add_theme_constant_override("line_spacing", 8)
 	_text_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 	_text_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var hint := WB.label(box, 16)
@@ -81,7 +84,7 @@ func _next() -> void:
 		return
 	var line: Dictionary = _lines[_index]
 	var who: String = line.get("who", "")
-	_name_label.text = who
+	_name_label.text = "◆ " + who
 	_name_label.visible = who != ""
 	_text_label.text = line["text"]
 	_text_label.visible_ratio = 0.0

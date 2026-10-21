@@ -27,7 +27,7 @@
 | ID | 用途 |
 |----|------|
 | Ground037 | 地面(苔土) |
-| Pathway004 | 參道 |
+| PavingStones138 | 參道、庭院 |
 | PavingStones138 | 神社庭院 |
 | Rock064 | 石牆、高台、石籠、石燈籠 |
 | WoodFloor064 | 木門、主殿牆(染朱紅) |
@@ -44,8 +44,8 @@
 - 24 組動畫(Idle、Walk、Gallop、Gallop_Jump…),遊戲使用 Idle / Gallop / Gallop_Jump。
 - 網頁的 Download 鈕在瀏覽器自動化下無反應,改由頁面原始碼找到的靜態網址(`static.poly.pizza/e18e86df-….glb`)直接下載。
 
-### 字型(OFL,`assets/fonts/NotoSansTC-Regular.otf`,5.4 MB)
-- 來源:[notofonts/noto-cjk](https://github.com/notofonts/noto-cjk) 的 `Sans/SubsetOTF/TC/NotoSansTC-Regular.otf`。
+### 字型(OFL,`assets/fonts/NotoSerifTC.ttf`,16.9 MB)
+- 來源:Google Fonts 的 Noto Serif TC 可變字重版(已取代先前的 Noto Sans TC,後者已移除)。
 - 授權文字:`assets/fonts/OFL.txt`(SIL Open Font License 1.1,可內嵌與商用)。
 
 ## 已下載到專案(其他)
@@ -77,3 +77,7 @@
 - 沒有確認 CC0 的日式神社整包;鳥居、燈籠、神社建築建議自建(基本幾何體即可)。
 - `assets/particles/*`(約 0.6 MB)— Kenney「Particle Pack 1.1」,CC0,妖氣源與嗅覺光柱用(授權檔 `KENNEY_LICENSE.txt`)。
 - `assets/textures/Plaster001/` — ambientCG Plaster001,CC0,主殿與土塀牆面。
+- `assets/textures/{Wood051,Wood067,ThatchedRoof001A}` — ambientCG,CC0
+- `assets/models/buildings/shoji.glb`(13.6 KB)— Quaternius「Japanese Door」,Poly Pizza(https://poly.pizza/m/t4otyljz8K),CC0,障子格子門。
+- `assets/audio/*.ogg` — 原創合成(`tools/make_music.py`),無第三方授權。
+- `assets/fonts/NotoSerifTC.ttf`(16.9 MB)— Noto Serif TC 可變字重,Google Fonts,SIL OFL 1.1(授權檔 `OFL_NotoSerifTC.txt`),標題與介面文字用。

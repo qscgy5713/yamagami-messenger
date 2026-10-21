@@ -88,9 +88,9 @@ func _build_ground() -> void:
 
 
 func _build_altar() -> void:
-	add_child(WB.box_visual(Vector3(3, 0.06, 36), m_path, Vector3(0, 0.03, 10)))
+	_make_path(Vector3(3, 0.06, 36), Vector3(0, 0.03, 10))
 	add_child(WB.box_body(Vector3(14, 0.4, 14), m_paving, Vector3(0, 0.2, -8)))
-	add_child(WB.torii(Vector3(0, 0.4, -17), 1.2))
+	_make_torii(Vector3(0, 0.4, -17), 1.2)
 	for p: Vector3 in [Vector3(-6, 0.4, -1.5), Vector3(6, 0.4, -1.5), Vector3(-6, 0.4, -14), Vector3(6, 0.4, -14)]:
 		_add_lantern(p, true)
 	# 封住山神的巨石:甦醒時沉入地下。

@@ -198,10 +198,10 @@ func _build_river() -> void:
 
 
 func _build_path() -> void:
-	add_child(WB.box_visual(Vector3(5, 0.06, 23), m_path, Vector3(0, 0.03, 33.5)))
-	add_child(WB.box_visual(Vector3(5, 0.06, 56), m_path, Vector3(0, 0.03, -18.0)))
+	_make_path(Vector3(5, 0.06, 23), Vector3(0, 0.03, 33.5))
+	_make_path(Vector3(5, 0.06, 56), Vector3(0, 0.03, -18.0), -23.0)
 	add_child(WB.box_visual(Vector3(26, 0.06, 22), m_paving, Vector3(0, 0.03, -35)))
-	add_child(WB.torii(Vector3(0, 0, 36)))
+	_make_torii(Vector3(0, 0, 36))
 	for z: float in [30.0, 26.0, 6.0, -2.0, -10.0]:
 		_add_lantern(Vector3(-3.6, 0, z), true)
 		_add_lantern(Vector3(3.6, 0, z), true)

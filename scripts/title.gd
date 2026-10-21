@@ -34,9 +34,9 @@ func _is_free(p: Vector3) -> bool:
 func _build_level() -> void:
 	add_child(WB.box_body(Vector3(60, 1, 70), m_ground, Vector3(0, -0.5, -10)))
 	_build_surroundings(30.0, -45.0, 25.0, WB.tex("Ground037", 0.3, Color("c4c9b2")))
-	add_child(WB.box_visual(Vector3(5, 0.06, 60), m_path, Vector3(0, 0.03, -10)))
-	add_child(WB.torii(Vector3(0, 0, -6), 1.1))
-	add_child(WB.torii(Vector3(0, 0, -18), 1.1))
+	_make_path(Vector3(5, 0.06, 60), Vector3(0, 0.03, -10))
+	_make_torii(Vector3(0, 0, -6), 1.1)
+	_make_torii(Vector3(0, 0, -18), 1.1)
 	for z: float in [4.0, -2.0, -10.0, -14.0]:
 		_add_lantern(Vector3(-3.6, 0, z), true)
 		_add_lantern(Vector3(3.6, 0, z), true)
@@ -60,13 +60,24 @@ func _start() -> void:
 	box.add_theme_constant_override("separation", 12)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(box)
-	var title := WB.label(box, 84)
+	var title := WB.label(box, 96, 800, 28)
 	title.text = "山神的使者"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_constant_override("outline_size", 10)
-	var sub := WB.label(box, 24)
+	title.add_theme_constant_override("outline_size", 8)
+	title.add_theme_color_override("font_color", Color("fff4dc"))
+	title.add_theme_constant_override("shadow_offset_y", 5)
+	# 標題與副標之間一條細金線。
+	var rule_row := HBoxContainer.new()
+	rule_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var rule := ColorRect.new()
+	rule.custom_minimum_size = Vector2(420, 2)
+	rule.color = Color(WB.C_GOLD, 0.75)
+	rule_row.add_child(rule)
+	box.add_child(rule_row)
+	var sub := WB.label(box, 24, 500, 10)
 	sub.text = "四季之社 ・ 一隻小狐狸的旅程"
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.add_theme_color_override("font_color", Color("f1dcae"))
 	hud_prompt.text = "按 E 開始"
 	hud_prompt.visible = true
 	hud_prompt.offset_top = -120.0

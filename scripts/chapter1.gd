@@ -142,9 +142,9 @@ func _build_ground() -> void:
 
 func _build_path() -> void:
 	# 參道與神社庭院(僅視覺,略高於地面)。
-	add_child(WB.box_visual(Vector3(5, 0.06, 90), m_path, Vector3(0, 0.03, -5)))
+	_make_path(Vector3(5, 0.06, 90), Vector3(0, 0.03, -5), -23.0)
 	add_child(WB.box_visual(Vector3(26, 0.06, 22), m_paving, Vector3(0, 0.03, -35)))
-	add_child(WB.torii(Vector3(0, 0, 32)))
+	_make_torii(Vector3(0, 0, 32))
 	for z: float in [36.0, 24.0, 12.0, 0.0, -12.0]:
 		_add_lantern(Vector3(-3.6, 0, z))
 		_add_lantern(Vector3(3.6, 0, z))

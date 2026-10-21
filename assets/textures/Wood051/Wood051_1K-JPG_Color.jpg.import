@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c6pvv6m86qey3"
-path="res://.godot/imported/Pathway004_1K-JPG_NormalGL.jpg-8374ab09e5957929e8fb12cc529efe02.ctex"
+uid="uid://cpauol8vxlbod"
+path="res://.godot/imported/Wood051_1K-JPG_Color.jpg-1496bc1f7647067b68d43dee8cb7c95d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/textures/Pathway004/Pathway004_1K-JPG_NormalGL.jpg"
-dest_files=["res://.godot/imported/Pathway004_1K-JPG_NormalGL.jpg-8374ab09e5957929e8fb12cc529efe02.ctex"]
+source_file="res://assets/textures/Wood051/Wood051_1K-JPG_Color.jpg"
+dest_files=["res://.godot/imported/Wood051_1K-JPG_Color.jpg-1496bc1f7647067b68d43dee8cb7c95d.ctex"]
 
 [params]
 
