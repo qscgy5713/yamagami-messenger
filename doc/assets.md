@@ -39,6 +39,15 @@
 - 授權檔:`assets/models/nature/License_Standard.txt`(CC0 1.0)。
 - 免費版樹葉只有紅 / 綠;櫻花色是用白色葉片遮罩 `Leaves_TwistedTree.png` 在程式裡染色(`WB.leaf_material`)。粉紫櫻色樹屬於付費 Pro 版,未使用。
 
+### 狐狸模型(CC0,`assets/models/fox/Fox.glb`,0.96 MB)
+- 來源:[Poly Pizza / Fox by Quaternius](https://poly.pizza/m/Bc97C66HKi),Public Domain (CC0),約 1.8k 三角面。
+- 24 組動畫(Idle、Walk、Gallop、Gallop_Jump…),遊戲使用 Idle / Gallop / Gallop_Jump。
+- 網頁的 Download 鈕在瀏覽器自動化下無反應,改由頁面原始碼找到的靜態網址(`static.poly.pizza/e18e86df-….glb`)直接下載。
+
+### 字型(OFL,`assets/fonts/NotoSansTC-Regular.otf`,5.4 MB)
+- 來源:[notofonts/noto-cjk](https://github.com/notofonts/noto-cjk) 的 `Sans/SubsetOTF/TC/NotoSansTC-Regular.otf`。
+- 授權文字:`assets/fonts/OFL.txt`(SIL Open Font License 1.1,可內嵌與商用)。
+
 ## 已下載到專案(其他)
 | 檔案 | 位置 | 來源 |
 |------|------|------|
@@ -48,6 +57,9 @@
 - 石燈籠(Sketchfab Japanese Toro)需登入才能下載,尚未取得。
 
 ## 製作名單(Credits)
+- 狐狸模型、樹木與植被 — Quaternius(CC0,無須掛名,仍建議列出)。
+- PBR 材質 — ambientCG(CC0)。
+- 字型 — Noto Sans TC,Google / Adobe(SIL OFL 1.1)。
 - Torii Gate — olde-tinkerer(itch.io),作者標示商用與非商用皆可,無正式授權條款。
 - Japanese Toro — André Bernardo(Sketchfab),CC-BY 4.0,取得後須於遊戲製作名單標示。
 

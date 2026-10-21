@@ -3,13 +3,14 @@ extends Node3D
 ## 流程:淨化池中小島與東邊高台的神木 → 庭院石門開啟 → 踩石板打開石籠、淨化最後一處 → 主殿開門 → 進入神社過關。
 ## 材質:ambientCG(CC0)PBR 貼圖;樹木與植被:Quaternius Stylized Nature MegaKit(CC0)。
 
-const CAMERA_OFFSET := Vector3(0.0, 9.0, 10.0)
+const CAMERA_OFFSET := Vector3(0.0, 6.5, 7.5)
 const INTERACT_RANGE := 2.5
 const FALL_Y := -3.0
 const START_POS := Vector3(0.0, 1.0, 40.0)
 const SOURCES_FOR_GATE := 2
 const SOURCES_TOTAL := 3
 const SCATTER_SEED := 20261021
+const UI_FONT_PATH := "res://assets/fonts/NotoSansTC-Regular.otf"
 
 class Source:
 	var orb: MeshInstance3D
@@ -33,7 +34,7 @@ var time := 0.0
 var msg_serial := 0
 var scene_cache := {}
 
-var ui_font: SystemFont
+var ui_font: FontFile
 var hud_count: Label
 var hud_hint: Label
 var hud_prompt: Label
@@ -527,9 +528,8 @@ func _build_hud() -> void:
 func _make_label(parent: Node, font_size: int) -> Label:
 	var label := Label.new()
 	if ui_font == null:
-		# Godot 預設字型沒有中日文字;依平台挑系統字型(正式版再改為內嵌 CJK 字型)。
-		ui_font = SystemFont.new()
-		ui_font.font_names = PackedStringArray(["Arial Unicode MS", "Microsoft JhengHei", "Noto Sans CJK TC"])
+		# Godot 預設字型沒有中日文字,改用內嵌的 Noto Sans TC(OFL)。
+		ui_font = load(UI_FONT_PATH) as FontFile
 	label.add_theme_font_override("font", ui_font)
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", WB.C_CREAM)

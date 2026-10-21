@@ -1,12 +1,21 @@
 class_name Player
 extends CharacterBody3D
-## 狐狸神使:相對於鏡頭方向移動,支援跳躍。外觀以 low-poly 基本幾何體組成。
+## 狐狸神使:相對於鏡頭方向移動,支援跳躍。模型為 Quaternius 的低多邊形紅狐(CC0)。
 
 const SPEED := 6.0
 const JUMP_VELOCITY := 6.5
 const TURN_SPEED := 10.0
+const FOX_SCENE := "res://assets/models/fox/Fox.glb"
+const FOX_SCALE := 0.45
+const BODY_RADIUS := 0.4
+const BODY_HEIGHT := 1.0
+const FOX_YAW_OFFSET := PI  ## 模型朝 +Z,而遊戲的「前方」是 -Z。
+const ANIM_BLEND := 0.15
 
 var camera: Camera3D
+
+var _anim: AnimationPlayer
+var _current_anim := ""
 
 
 func _ready() -> void:
@@ -31,39 +40,41 @@ func _physics_process(delta: float) -> void:
 		rotation.y = lerp_angle(rotation.y, atan2(-dir.x, -dir.z), TURN_SPEED * delta)
 
 	move_and_slide()
+	_update_animation(dir.length() > 0.01)
+
+
+func _update_animation(moving: bool) -> void:
+	if _anim == null:
+		return
+	var wanted := "Idle"
+	if not is_on_floor():
+		wanted = "Gallop_Jump"
+	elif moving:
+		wanted = "Gallop"
+	if wanted != _current_anim:
+		_current_anim = wanted
+		_anim.play(wanted, ANIM_BLEND)
 
 
 func _build_body() -> void:
 	var shape := CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
-	capsule.radius = 0.4
-	capsule.height = 1.4
+	capsule.radius = BODY_RADIUS
+	capsule.height = BODY_HEIGHT
 	shape.shape = capsule
 	add_child(shape)
 
-	var orange := WB.material(WB.C_FOX)
-	var body_mesh := CapsuleMesh.new()
-	body_mesh.radius = 0.4
-	body_mesh.height = 1.4
-	body_mesh.radial_segments = 6
-	body_mesh.rings = 2
-	add_child(WB.mesh_instance(body_mesh, orange, Vector3.ZERO))
+	var model := (load(FOX_SCENE) as PackedScene).instantiate() as Node3D
+	model.scale = Vector3.ONE * FOX_SCALE
+	model.rotation.y = FOX_YAW_OFFSET
+	# 模型原點在腳底,碰撞膠囊中心在身體中央,故下移半個膠囊高。
+	model.position.y = -BODY_HEIGHT * 0.5
+	add_child(model)
 
-	# 耳朵:四角錐,朝前(-Z)的一側。
-	for x: float in [-0.22, 0.22]:
-		var ear := CylinderMesh.new()
-		ear.top_radius = 0.0
-		ear.bottom_radius = 0.14
-		ear.height = 0.4
-		ear.radial_segments = 4
-		add_child(WB.mesh_instance(ear, orange, Vector3(x, 0.9, -0.05)))
-
-	# 尾巴:朝後(+Z)。
-	var tail := CylinderMesh.new()
-	tail.top_radius = 0.0
-	tail.bottom_radius = 0.2
-	tail.height = 0.7
-	tail.radial_segments = 5
-	var tail_inst := WB.mesh_instance(tail, WB.material(WB.C_CREAM), Vector3(0.0, 0.0, 0.55))
-	tail_inst.rotation_degrees = Vector3(90, 0, 0)
-	add_child(tail_inst)
+	_anim = model.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	if _anim != null:
+		# glTF 匯入的動畫預設不循環。
+		for anim_name: String in ["Idle", "Walk", "Gallop"]:
+			_anim.get_animation(anim_name).loop_mode = Animation.LOOP_LINEAR
+		_anim.play("Idle")
+		_current_anim = "Idle"

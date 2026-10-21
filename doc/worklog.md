@@ -1,6 +1,10 @@
 # Worklog
 
 ## 2026-10-21
+- 處理遺留項目:狐狸改用 Quaternius CC0 紅狐(Poly Pizza,0.96 MB,24 組動畫);內嵌 Noto Sans TC 字型取代系統字型。資產體積評估後暫不上 Git LFS。
+- `player.gd`:狐狸依狀態切換 Idle / Gallop / Gallop_Jump(glTF 動畫預設不循環,需手動設 loop_mode)。模型朝 +Z,以 `FOX_YAW_OFFSET = PI` 轉向;縮放 0.45、碰撞膠囊 0.4 × 1.0;鏡頭拉近至 (0, 6.5, 7.5)。
+- 以腳本模擬輸入(前進、跳躍)驗證動畫狀態與移動速度;渲染截圖確認外觀。
+- 踩雷:Poly Pizza 的 Download 鈕在瀏覽器自動化下沒有反應,改從頁面原始碼找靜態網址下載。
 - 使用者反映畫面「很幼稚、不太日系」:改為低飽和傳統色、霧氣、暖低角度光;抽出共用色票與工具到 `scripts/whitebox.gd`。
 - 新增第一章白盒 `scenes/chapter1.tscn` + `scripts/chapter1.gd`,取代原型 main 場景(已刪除)。三處妖氣源(跳石 / 爬高台 / 石板開石籠)→ 石門 → 主殿。修正原型的踏板離開後門又關上的問題(改為永久開啟)。
 - 下載 ambientCG 7 組 CC0 材質(約 46 MB)與 Quaternius Stylized Nature MegaKit Standard(99 MB,只取 25 個模型放進專案),套用三向投影貼圖與櫻樹 / 草 / 灌木 / 石頭 / 花瓣。
