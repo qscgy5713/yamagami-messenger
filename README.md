@@ -34,8 +34,9 @@ yamagami-messenger/
 │   ├── shaders/          # 妖氣 / 木靈身體 shader
 │   └── audio/            # 日式配樂(tools/make_music.py 合成)
 ├── tools/
-│   └── make_music.py     # 合成配樂(需 python3 + ffmpeg)
-├── scenes/
+│   ├── make_music.py     # 合成配樂(需 python3 + ffmpeg)
+│   └── make_textures.py  # 自繪日式建築貼圖(需 python3 + Pillow)
+├── scenes/            # (dev_showcase.tscn 為日式建築展示用)
 │   ├── title.tscn        # 主場景(標題畫面)
 │   ├── prologue.tscn     # 序章
 │   ├── chapter1.tscn     # 第一章
@@ -64,4 +65,5 @@ yamagami-messenger/
 ## 文件索引
 - [計畫 plan](doc/plan.md)
 - [待辦 todo](doc/todo.md)
+- [日式建築與鳥居參考資料 design-refs](doc/design-refs.md)
 - [工作日誌 worklog](doc/worklog.md)

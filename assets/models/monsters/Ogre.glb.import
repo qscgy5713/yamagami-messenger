@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://bimu8hpsm2nsn"
-path="res://.godot/imported/Ghost.glb-dddf60af94327c85ab61c2bf22b471f0.scn"
+uid="uid://bywh4eefyllgt"
+path="res://.godot/imported/Ogre.glb-69a647ebc3ab83e08474516b78070f08.scn"
 
 [deps]
 
-source_file="res://assets/models/monsters/Ghost.glb"
-dest_files=["res://.godot/imported/Ghost.glb-dddf60af94327c85ab61c2bf22b471f0.scn"]
+source_file="res://assets/models/monsters/Ogre.glb"
+dest_files=["res://.godot/imported/Ogre.glb-69a647ebc3ab83e08474516b78070f08.scn"]
 
 [params]
 

@@ -16,12 +16,11 @@ class Source:
 const CAM_PITCH_DEFAULT := 0.71  ## 約 41°,與舊版固定視角相同
 const CAM_DIST_DEFAULT := 9.9
 const PARTICLE_DIR := "res://assets/particles/"
-const SHOJI_SCALE := 100.0  ## shoji.glb 以公分為單位(寬 0.04),放大 100 倍成 4 公尺寬
 const INTERACT_RANGE := 2.5
 const FALL_Y := -3.0
 const SCATTER_SEED := 20261021
-const BOSS_MODEL := "res://assets/models/monsters/Ghost.glb"
-const BOSS_SCALE := 1.3
+const BOSS_MODEL := "res://assets/models/monsters/Ogre.glb"
+const BOSS_SCALE := 1.25
 const ENV_DEFAULT := {
 	"sky_top": Color("9fb0bd"),
 	"sky_horizon": Color("e6dfd2"),
@@ -68,6 +67,7 @@ var boss_center := Vector3.ZERO
 var boss_court := Rect2()
 var boss_lines: Dictionary = {}
 var boss_orb: Node3D
+var boss_model: Node3D
 var boss_arms: Array = []  # 每條觸手是一串球體節點
 var boss_light: OmniLight3D
 var boss_pylons: Array[Dictionary] = []  # {node, cap, lit}
@@ -82,9 +82,6 @@ var cam_dist := CAM_DIST_DEFAULT
 var trees: Array[Dictionary] = []  # {meshes, center, radius}:樹冠、鳥居擋住鏡頭時變半透明
 var m_plaster: Material
 var m_wood_dark: Material
-var m_wood_light: Material
-var m_thatch: Material
-var m_paper: Material
 const MUSIC_DIR := "res://assets/audio/"
 const MUSIC_BY_LEVEL := {"title": "title", "prologue": "title", "chapter1": "spring", "chapter2": "summer", "chapter3": "autumn", "chapter4": "winter", "finale": "finale"}
 const MUSIC_VOLUME_DB := -9.0
@@ -693,37 +690,39 @@ func _boss_cone(radius: float, height: float, mat: Material, pos: Vector3, rot_z
 
 
 func _build_boss_body() -> Node3D:
-	## 妖氣之主:Quaternius「Ghost」模型(CC0),放大並染成暗紫,播放飛行待機動畫。
+	## 妖氣之主:被妖氣侵蝕的「鬼」(Poly Pizza「Ogre」by joney_lol,CC BY 3.0)。紅色身體換成流動的暗紅妖氣貼圖,浮在庭院上空;模型沒有動畫,以呼吸般的縮放與晃動代替。
 	var root := Node3D.new()
-	var model := (load(BOSS_MODEL) as PackedScene).instantiate() as Node3D
-	model.scale = Vector3.ONE * BOSS_SCALE
-	model.position = Vector3(0, -1.5, 0)
-	root.add_child(model)
+	boss_model = (load(BOSS_MODEL) as PackedScene).instantiate() as Node3D
+	boss_model.scale = Vector3.ONE * BOSS_SCALE
+	boss_model.position = Vector3(0, -2.4, 0)
+	root.add_child(boss_model)
 	var body_mat := ShaderMaterial.new()
 	body_mat.shader = load("res://assets/shaders/miasma_body.gdshader") as Shader
 	body_mat.set_shader_parameter("smoke", load(PARTICLE_DIR + "smoke_01.png"))
-	for mi in model.find_children("*", "MeshInstance3D", true, false):
+	body_mat.set_shader_parameter("dark", Color(0.22, 0.03, 0.08))
+	body_mat.set_shader_parameter("light", Color(0.72, 0.14, 0.2))
+	body_mat.set_shader_parameter("rim", Color(0.7, 0.35, 1.0))
+	for mi in boss_model.find_children("*", "MeshInstance3D", true, false):
 		var inst := mi as MeshInstance3D
 		for k in inst.mesh.get_surface_count():
 			var mat := inst.mesh.surface_get_material(k) as StandardMaterial3D
-			if mat != null:
-				var lum := mat.albedo_color.get_luminance()
-				if lum > 0.5:
-					inst.set_surface_override_material(k, body_mat)  # 白色的身體 → 流動的妖氣貼圖
-				else:
-					var dim := mat.duplicate() as StandardMaterial3D
-					dim.albedo_color = dim.albedo_color * Color(0.62, 0.55, 0.72)
-					inst.set_surface_override_material(k, dim)
-	var anim := model.find_child("AnimationPlayer", true, false) as AnimationPlayer
-	if anim != null:
-		var idle := "CharacterArmature|Flying_Idle"
-		anim.get_animation(idle).loop_mode = Animation.LOOP_LINEAR
-		anim.play(idle)
+			if mat == null:
+				continue
+			var lum := mat.albedo_color.get_luminance()
+			if lum > 0.3 and lum < 0.85:
+				inst.set_surface_override_material(k, body_mat)  # 紅色的身體 → 流動的妖氣貼圖
+			else:
+				var dim := mat.duplicate() as StandardMaterial3D
+				dim.albedo_color = dim.albedo_color * Color(0.8, 0.7, 0.85)
+				inst.set_surface_override_material(k, dim)
 	boss_arms.clear()
 	return root
 
 
 func _animate_boss() -> void:
+	if boss_model != null:
+		boss_model.scale = Vector3(1.0, 1.0 + sin(time * 1.8) * 0.025, 1.0) * BOSS_SCALE
+		boss_model.rotation.z = sin(time * 1.1) * 0.05
 	for i in boss_arms.size():
 		var a := float(i) * TAU / float(boss_arms.size()) + time * 0.35
 		var arm: Array = boss_arms[i]
@@ -1006,11 +1005,8 @@ func _setup_materials() -> void:
 	m_stone = WB.tex("Rock064", 0.4)
 	m_stone_dark = WB.tex("Rock064", 0.3, Color("c2bcaf"))
 	m_wood = WB.tex("WoodFloor064", 0.5, Color("c8a58a"))
-	m_plaster = WB.tex("Plaster001", 0.35, Color("f1e6d2"))
+	m_plaster = WB.tex("Plaster001", 0.35, Color("e2cfa4"))
 	m_wood_dark = WB.tex("Wood051", 0.5)
-	m_wood_light = WB.tex("Wood067", 0.6, Color("d9b58f"))
-	m_thatch = WB.tex("ThatchedRoof001A", 0.35, Color("d8cbb0"))
-	m_paper = WB.material(Color("f4efe4"))
 	m_paint_red = WB.tex("WoodFloor064", 0.5, Color("e0654a"))
 	m_roof = WB.tex("RoofingTiles013A", 0.5, Color("8a8a92"))
 
@@ -1244,9 +1240,12 @@ func _make_path(size: Vector3, pos: Vector3, min_z := -INF) -> void:
 
 func _make_torii(pos: Vector3, torii_scale := 1.0) -> void:
 	## 所有鳥居都走這裡:橫樑會擋住從後方跟拍的鏡頭,所以登記進遮擋半透明清單(中心與半徑隨縮放)。
-	var torii := WB.torii(pos, torii_scale)
+	var torii := JP.torii(pos, torii_scale)
 	add_child(torii)
-	trees.append({"meshes": [torii] as Array[MeshInstance3D], "center": pos + Vector3(0, 4.5 * torii_scale, 0), "radius": 2.8 * torii_scale})
+	var meshes: Array[MeshInstance3D] = []
+	for n in torii.find_children("*", "MeshInstance3D", true, false):
+		meshes.append(n as MeshInstance3D)
+	trees.append({"meshes": meshes, "center": pos + Vector3(0, 5.2 * torii_scale, 0), "radius": 3.2 * torii_scale})
 
 
 func _register_tree(tree: Node3D) -> void:
@@ -1399,74 +1398,41 @@ func _dress_block(center: Vector3, size_xz: Vector2, top_y: float, seed_offset :
 
 
 func _build_shrine_hall() -> StaticBody3D:
-	## 神社本殿(日式):白灰泥牆 + 深色木柱樑 + 障子 + 茅葺屋頂,屋脊有千木與鰹木,門前掛注連繩、擺賽錢箱。回傳封住正面的木門。
-	add_child(WB.box_body(Vector3(4, 6, 6), m_plaster, Vector3(-4, 3, -48)))
-	add_child(WB.box_body(Vector3(4, 6, 6), m_plaster, Vector3(4, 3, -48)))
-	add_child(WB.box_body(Vector3(12, 6, 1), m_plaster, Vector3(0, 3, -51.5)))
+	## 神社本殿:碰撞體與牆面在這裡,外觀細部(木柱樑、障子、曲面瓦屋頂、千木鰹木、注連繩)由 JP.hall_details 加。回傳封住正面的木門。
+	# 神社本殿不用土壁:牆是風化的素木板。
+	var m_board := JP.mat("cedar_board", Color("a08a72"), 0.25, true, 0.9)
+	add_child(WB.box_body(Vector3(4, 6, 6), m_board, Vector3(-4, 3, -48)))
+	add_child(WB.box_body(Vector3(4, 6, 6), m_board, Vector3(4, 3, -48)))
+	add_child(WB.box_body(Vector3(12, 6, 1), m_board, Vector3(0, 3, -51.5)))
 	add_child(WB.box_body(Vector3(4, 2, 0.8), m_wood_dark, Vector3(0, 5, -45.4)))
-	# 木柱、長押(橫樑)、地覆(底梁)。
-	for x: float in [-6.0, -2.0, 2.0, 6.0]:
-		add_child(WB.box_visual(Vector3(0.5, 6.0, 0.5), m_wood_dark, Vector3(x, 3.0, -44.85)))
-	for x: float in [-6.0, 6.0]:
-		add_child(WB.box_visual(Vector3(0.5, 6.0, 0.5), m_wood_dark, Vector3(x, 3.0, -51.2)))
-	add_child(WB.box_visual(Vector3(12.6, 0.4, 0.55), m_wood_dark, Vector3(0, 5.55, -44.85)))
-	add_child(WB.box_visual(Vector3(12.6, 0.3, 0.5), m_wood_dark, Vector3(0, 0.45, -44.85)))
-	for x: float in [-6.0, 6.0]:
-		add_child(WB.box_visual(Vector3(0.5, 0.4, 6.8), m_wood_dark, Vector3(x, 5.55, -48)))
-	# 兩側牆面前的障子(Quaternius 日式門,CC0),各蓋住一段正面。
-	var shoji := load("res://assets/models/buildings/shoji.glb") as PackedScene
-	for x: float in [-4.0, 4.0]:
-		var panel := shoji.instantiate() as Node3D
-		panel.scale = Vector3.ONE * SHOJI_SCALE
-		panel.position = Vector3(x, 0.55, -44.75)
-		add_child(panel)
-	# 縁側(木地板迴廊)與石基座、台階。
-	add_child(WB.box_visual(Vector3(14.6, 0.25, 1.8), m_wood_dark, Vector3(0, 0.12, -44.2)))
-	add_child(WB.box_visual(Vector3(15.4, 0.3, 9.4), m_stone_dark, Vector3(0, 0.0, -48.2)))
-	add_child(WB.box_visual(Vector3(4.4, 0.2, 1.0), m_stone_dark, Vector3(0, 0.1, -43.0)))
-	# 屋頂:茅葺稜柱 + 厚屋簷。放進 StaticBody,鏡頭遮擋時可半透明。
-	var roof := StaticBody3D.new()
-	roof.position = Vector3(0, 6.0, -48)
-	var prism := PrismMesh.new()
-	prism.size = Vector3(17.5, 4.4, 11.6)
-	roof.add_child(WB.mesh_instance(prism, m_thatch, Vector3(0, 2.2, 0)))
-	roof.add_child(WB.box_visual(Vector3(17.5, 0.4, 11.6), m_thatch, Vector3(0, 0.1, 0)))
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = Vector3(17, 4.0, 11.6)
-	shape.shape = box
-	shape.position = Vector3(0, 2.0, 0)
-	roof.add_child(shape)
-	# 鰹木(屋脊上橫放的圓木)與千木(山牆頂交叉伸出的木條)。
-	for k in 5:
-		var log := CylinderMesh.new()
-		log.top_radius = 0.28
-		log.bottom_radius = 0.28
-		log.height = 1.5
-		var inst := WB.mesh_instance(log, m_wood_light, Vector3(0, 4.55, -3.6 + k * 1.8))
-		inst.rotation_degrees = Vector3(0, 0, 90)
-		roof.add_child(inst)
-	for zz: float in [-5.8, 5.8]:
-		for ang: float in [-28.0, 28.0]:
-			var chigi := WB.box_visual(Vector3(0.22, 3.2, 0.22), m_wood_light, Vector3(0, 5.1, zz))
-			chigi.rotation_degrees = Vector3(0, 0, ang)
-			roof.add_child(chigi)
-	add_child(roof)
-	# 注連繩(稻草繩)與紙垂,賽錢箱。
-	var rope := CylinderMesh.new()
-	rope.top_radius = 0.16
-	rope.bottom_radius = 0.16
-	rope.height = 4.4
-	var rope_inst := WB.mesh_instance(rope, m_thatch, Vector3(0, 4.35, -45.1))
-	rope_inst.rotation_degrees = Vector3(0, 0, 90)
-	add_child(rope_inst)
-	for x: float in [-1.5, 0.0, 1.5]:
-		add_child(WB.box_visual(Vector3(0.35, 0.8, 0.04), m_paper, Vector3(x, 3.75, -45.1)))
-	add_child(WB.box_visual(Vector3(1.6, 0.9, 0.9), m_wood_dark, Vector3(0, 0.55, -43.6)))
+	JP.hall_details(self, m_board)
 	var door := WB.box_body(Vector3(4, 4, 0.8), m_wood_dark, Vector3(0, 2, -45.4))
 	add_child(door)
 	add_child(WB.box_body(Vector3(1.5, 1, 1), m_stone_dark, Vector3(0, 0.5, -49.8)))
+	_place_village()
 	return door
+
+
+func _place_village() -> void:
+	## 路旁的町家與土藏(自繪貼圖 + 程式產生的曲面屋頂)。位置不空就略過,不影響各章的機關。
+	var spots := [
+		[Vector3(17, 0, 22), -PI * 0.5, "machiya"], [Vector3(-17, 0, 24), PI * 0.5, "kura"],
+		[Vector3(18, 0, 38), -PI * 0.5, "kura"], [Vector3(-18, 0, 40), PI * 0.5, "machiya"]]
+	for sp in spots:
+		var p: Vector3 = sp[0]
+		var ok := true
+		for dx in [-5.0, 0.0, 5.0]:
+			for dz in [-5.0, 0.0, 5.0]:
+				if not _is_free(p + Vector3(dx, 0, dz)):
+					ok = false
+		if not ok:
+			continue
+		if sp[2] == "machiya":
+			JP.machiya(self, p + Vector3(0, _ground_y(p), 0), sp[1])
+			scatter_blocked.append(Rect2(p.x - 8.0, p.z - 7.0, 16.0, 14.0))
+		else:
+			JP.kura(self, p + Vector3(0, _ground_y(p), 0), sp[1])
+			scatter_blocked.append(Rect2(p.x - 6.0, p.z - 6.0, 12.0, 12.0))
 
 
 func _scatter_is_blocked(p: Vector3) -> bool:

@@ -183,7 +183,8 @@ func _show_ending() -> void:
 		["山神的使者", 56, Color("2b2b2b")],
 		["── 完 ──", 28, Color("5a5a5a")],
 		["", 16, Color.BLACK],
-		["素材:Quaternius(CC0)、ambientCG(CC0)、Noto Sans TC(OFL)", 18, Color("5a5a5a")],
+		["素材:Quaternius(CC0)、ambientCG(CC0)、Kenney(CC0)、Noto Serif TC(OFL)", 18, Color("5a5a5a")],
+		["鬼 Ogre by joney_lol(CC BY 3.0,Poly Pizza)", 18, Color("5a5a5a")],
 		["感謝遊玩", 24, Color("2b2b2b")],
 	]
 	for t in texts:

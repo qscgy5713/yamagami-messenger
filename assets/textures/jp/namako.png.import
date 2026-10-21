@@ -2,19 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dgteis1k8spd1"
-path="res://.godot/imported/shoji_Sushi_Atlas.png-bc16d1f176d049defa1a6374fd319431.ctex"
+uid="uid://bobby8vlvxeb1"
+path="res://.godot/imported/namako.png-a9e977c2073b14b134514d766b9feb46.ctex"
 metadata={
 "vram_texture": false
-}
-generator_parameters={
-"md5": "deb4136320a09128a91dae0c35c66c97"
 }
 
 [deps]
 
-source_file="res://assets/models/buildings/shoji_Sushi_Atlas.png"
-dest_files=["res://.godot/imported/shoji_Sushi_Atlas.png-bc16d1f176d049defa1a6374fd319431.ctex"]
+source_file="res://assets/textures/jp/namako.png"
+dest_files=["res://.godot/imported/namako.png-a9e977c2073b14b134514d766b9feb46.ctex"]
 
 [params]
 

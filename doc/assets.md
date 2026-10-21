@@ -78,6 +78,9 @@
 - `assets/particles/*`(約 0.6 MB)— Kenney「Particle Pack 1.1」,CC0,妖氣源與嗅覺光柱用(授權檔 `KENNEY_LICENSE.txt`)。
 - `assets/textures/Plaster001/` — ambientCG Plaster001,CC0,主殿與土塀牆面。
 - `assets/textures/{Wood051,Wood067,ThatchedRoof001A}` — ambientCG,CC0
-- `assets/models/buildings/shoji.glb`(13.6 KB)— Quaternius「Japanese Door」,Poly Pizza(https://poly.pizza/m/t4otyljz8K),CC0,障子格子門。
+
 - `assets/audio/*.ogg` — 原創合成(`tools/make_music.py`),無第三方授權。
 - `assets/fonts/NotoSerifTC.ttf`(16.9 MB)— Noto Serif TC 可變字重,Google Fonts,SIL OFL 1.1(授權檔 `OFL_NotoSerifTC.txt`),標題與介面文字用。
+- `assets/models/monsters/Ogre.glb`(57 KB)— 「Ogre」by joney_lol,Poly Pizza(https://poly.pizza/m/7oO8liwQv6),**CC BY 3.0(需掛名,已列於終章製作名單)**,Boss 用。
+- `assets/textures/jp/*.png` — 自繪(`tools/make_textures.py`),參考見 `doc/design-refs.md`。
+
