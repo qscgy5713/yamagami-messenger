@@ -2,6 +2,9 @@ extends Node3D
 ## 原型場景:地面、狐狸、踏板 + 石門機關。全部以程式碼建立,之後再換成正式關卡。
 
 const CAMERA_OFFSET := Vector3(0.0, 9.0, 10.0)
+const TORII_MESH_PATH := "res://assets/models/torii/shinto-shrine-gate.obj"
+const TORII_SCALE := 1.0
+const TORII_FOOT_OFFSET := 7.05
 
 var player: Player
 var camera: Camera3D
@@ -97,13 +100,15 @@ func _build_ground() -> void:
 
 
 func _build_gate() -> void:
-	## 鳥居:兩根柱子 + 兩道橫梁,位置在石門後方當作目標。
-	var red := Color("c8352b")
-	var z := -16.0
-	add_child(_make_box_body(Vector3(0.6, 5, 0.6), red, Vector3(-3, 2.5, z)))
-	add_child(_make_box_body(Vector3(0.6, 5, 0.6), red, Vector3(3, 2.5, z)))
-	add_child(_make_box_body(Vector3(9, 0.5, 0.8), Color("2b2b2b"), Vector3(0, 5.2, z)))
-	add_child(_make_box_body(Vector3(7, 0.4, 0.5), red, Vector3(0, 4.2, z)))
+	## 鳥居:使用 itch.io 的 low-poly 模型,放在石門後方當作目標。
+	## 模型原點在頂端、腳底約在 y=-7.05,故需抬高。表面順序為 red、black。
+	var inst := MeshInstance3D.new()
+	inst.mesh = load(TORII_MESH_PATH) as Mesh
+	inst.set_surface_override_material(0, _make_material(Color("c8352b")))
+	inst.set_surface_override_material(1, _make_material(Color("2b2b2b")))
+	inst.scale = Vector3.ONE * TORII_SCALE
+	inst.position = Vector3(0.0, TORII_FOOT_OFFSET * TORII_SCALE, -16.0)
+	add_child(inst)
 
 
 func _build_puzzle() -> void:

@@ -8,20 +8,21 @@
 - 美術:low-poly
 
 ## 安裝與環境設定
-1. 安裝 Godot 4.3 以上(<https://godotengine.org/download>,或 `brew install --cask godot`)。
+1. 安裝 Godot 4.3 以上(<https://godotengine.org/download>,或 `brew install --cask godot`;已在 4.7.2 驗證可執行)。
 2. 用 Godot 開啟本資料夾的 `project.godot`。
 
 ## 啟動 / 使用方式
 在編輯器按 F5 執行。目前為原型:
 - 移動:WASD / 方向鍵
 - 跳躍:空白鍵
-- 踩上黃色踏板,前方石門會下沉
+- 踩上黃色踏板,前方石門會下沉,後方是鳥居
 
 ## 目錄結構
 ```
 yamagami-messenger/
 ├── project.godot
 ├── README.md
+├── assets/models/        # 第三方模型(來源與授權見 doc/assets.md)
 ├── scenes/main.tscn      # 主場景(掛載 main.gd)
 ├── scripts/
 │   ├── main.gd           # 以程式碼建立原型關卡

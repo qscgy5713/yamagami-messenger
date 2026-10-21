@@ -1,6 +1,10 @@
 # Worklog
 
 ## 2026-10-21
+- 以 Homebrew 安裝 Godot 4.7.2;headless 匯入與執行皆無腳本錯誤(僅匯入 OBJ 時提示缺 `.mtl`,無影響)。
+- 鳥居 OBJ 接進 `main.gd`:原點在頂端、腳底約 y=-7.05,故以 `TORII_FOOT_OFFSET` 抬高;兩個表面(red / black)用程式碼指定顏色。已以 SceneTree 腳本渲染截圖確認外觀。
+- 石燈籠需登入 Sketchfab 下載,仍待使用者提供。
+- 納入 Godot 產生的 `.uid`、`.import` 檔進版控。
 - 逐頁確認素材授權,整理於 `doc/assets.md`;下載 itch.io 鳥居的 `.obj` 至 `assets/models/torii/`(`.fbx`/`.mtl` 被瀏覽器擋下,未取得)。
 - 石燈籠(Sketchfab,CC-BY)需使用者登入下載,待取得。
 - 決定使用 Godot 4 / PC / low-poly。建立 Godot 專案:`project.godot`、`scenes/main.tscn`、`scripts/main.gd`、`scripts/player.gd`。
