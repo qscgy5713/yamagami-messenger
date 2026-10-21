@@ -31,6 +31,11 @@
 
 依據這些修改:本殿牆面由黃灰泥改為風化素木板、屋頂由灰瓦改為檜皮葺色(神社不用土壁與瓦);所有屋頂加黑漆破風板與懸魚;所有山牆加小格子窗(原本一整片米黃很突兀)。
 
+## 鬼(oni)
+來源:https://en.wikipedia.org/wiki/Oni(CC BY-SA)。標準樣貌:皮膚紅 / 藍 / 黑 / 黃;一或多支牛角;獠牙;壯碩身形;手腳有爪;虎皮兜襠布;鐵製金棒(kanabō);通常為男性。
+曾依此用 Ogre 模型改做成日本鬼(紅皮膚、虎皮兜襠布、牛角、亂髮、鐵金棒),後來使用者改選大蛇(Cobra)當 Boss,鬼的相關程式與貼圖已移除;Boss 周圍的妖氣小球(曾改成藍白鬼火)後來認為突兀,已整個拿掉。
+曾評估現成模型:Poly Pizza 無鬼模型;Sketchfab、BOOTH、CGTrader 需登入;Meshy 的 CC0 為 AI 生成。另曾下載 YumeForge「Japanese Rural Village」免費包(itch.io,允許商用,風格為平塗色低多邊形),使用者比較後認為自繪的較好看,故未採用並已移除。
+
 ## 參考頁面(文字 / 分類,未下載圖片)
 - 海鼠壁(namako-kabe):https://en.wikipedia.org/wiki/Namako_wall —— 平瓦斜貼 + 白灰泥隆起的縫
 - 海鼠壁照片:https://commons.wikimedia.org/wiki/File:Namako-kabe_(4003049613).jpg

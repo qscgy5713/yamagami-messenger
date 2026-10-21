@@ -2,3 +2,8 @@
 *.translation
 export_presets.cfg
 .DS_Store
+
+# 第三方模型:授權禁止再配布模型檔本身(BOOTH「神社3Dモデル」),不可 commit 到公開 repo
+assets/models/shrine_booth/
+# Poly Pizza 候選模型(評估用,暫存;確定採用後再移入 assets/models/monsters 並寫入 doc/assets.md)
+assets/models/_cand/

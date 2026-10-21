@@ -81,6 +81,6 @@
 
 - `assets/audio/*.ogg` — 原創合成(`tools/make_music.py`),無第三方授權。
 - `assets/fonts/NotoSerifTC.ttf`(16.9 MB)— Noto Serif TC 可變字重,Google Fonts,SIL OFL 1.1(授權檔 `OFL_NotoSerifTC.txt`),標題與介面文字用。
-- `assets/models/monsters/Ogre.glb`(57 KB)— 「Ogre」by joney_lol,Poly Pizza(https://poly.pizza/m/7oO8liwQv6),**CC BY 3.0(需掛名,已列於終章製作名單)**,Boss 用。
+- `assets/models/monsters/Cobra.glb`(約 0.2 MB)— 「Cobra」by jeremy,Poly Pizza(https://poly.pizza/m/fBz0OKeCCON),**CC BY 3.0(需掛名,已列於終章製作名單)**,Boss「妖氣之主」(大蛇)用。
 - `assets/textures/jp/*.png` — 自繪(`tools/make_textures.py`),參考見 `doc/design-refs.md`。
 

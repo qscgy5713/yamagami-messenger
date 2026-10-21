@@ -1,5 +1,28 @@
 # Worklog
 
+## 2026-10-22(Boss 改為大蛇)
+- 使用者要找免費 CC 素材,並表示不一定要鬼,大蟒蛇、龍都可以。從 Poly Pizza 下載蛇與龍共 20 個候選(`assets/models/_cand/`,已 gitignore,僅供檢視;檢視畫面 `scenes/dev_models.tscn`),使用者選了第 5 個:Cobra(jeremy,CC BY 3.0)。
+- Boss「妖氣之主」改為盤踞在庭院地面的大蛇:`level_base.gd` 的 `_build_boss_body`(縮放 0.7、中心與底面對齊支點、身體貼樹皮紋、黑色部分改發光紅眼、`BOSS_FACING` 讓蛇頭朝向玩家);沒有動畫,以呼吸與左右擺動代替。終章名單改掛 jeremy。
+- 拿掉 Boss 周圍飄的小球(妖氣 / 鬼火粒子),使用者覺得突兀,只留光。
+- 移除不用的:Ogre 模型、`oni_kit.gd`、鬼的皮膚與虎皮貼圖(連同 `make_textures.py` 內的函式)、Metal049A、多頭大蛇原型與 Snake 模型。
+- 未驗證:大蛇的實際戰鬥畫面(只在 `scenes/dev_boss.tscn` 單獨檢視過)。
+
+## 2026-10-22(找日式怪物素材、大蛇原型)
+- 使用者要找日式怪物。搜尋結果與取捨見對話:Sketchfab tranb95 的日本妖怪系列(CC BY,需登入下載)、BOOTH 的河童 / 輪入道 / 餓鬼等(多為 ¥100~800)、tt-3D 日本妖怪入門包(Fab,需登入)。Sketchfab 與 BOOTH 皆需使用者自行登入,我無法代為登入或付款。
+- 神社(BOOTH「神社3Dモデル」,免費,使用者已下載):規約禁止再配布模型檔,而 repo 是公開的,故放 `assets/models/shrine_booth/` 並加入 `.gitignore`;屋頂貼圖改為緑青色、縮成 2048。尚未接進遊戲(需處理碰撞與前門)。
+- 大蛇原型:`scripts/orochi_kit.gd`(`OrochiKit.build(heads)`),用 Quaternius「Snake」(CC0,Poly Pizza,有動畫),蛇身深綠、眼睛發光紅;heads>1 時為多頭(八岐大蛇)。展示場景 `scenes/dev_orochi.tscn`。蛇模型偏卡通,是否採用待使用者確認。
+- 鬼的展示場景 `scenes/dev_boss.tscn`。
+
+## 2026-10-22(鬼改日式)
+- 使用者:熔岩皮膚「好不日式」。改依日本鬼的標準樣貌(見 `doc/design-refs.md`)做:新增 `scripts/oni_kit.gd`——紅皮膚(自繪 oni_skin)、虎皮兜襠布與護腕(自繪 tora)、一對牛角、亂髮、鐵金棒(ambientCG Metal049A);妖氣小球改為藍色鬼火。移除不用的 Lava002。
+- 使用者要求找免費素材:試了 YumeForge 免費包(itch.io)並放進展示場景比較,使用者認為自繪的較好看,未採用並已移除。
+- 展示場景 `scenes/dev_boss.tscn` 可單獨繞行觀看鬼。
+
+## 2026-10-22(Boss 皮膚改熔岩貼圖)
+- 使用者:鬼很醜,要找材質貼。從 ambientCG 下載 Lava002(CC0:黑色岩石 + 發光紅色熔岩紋,含法線、粗糙度、自發光),用立體貼圖貼在 Ogre 的皮膚面;取代原本的流動妖氣 shader(該 shader 仍用於其他物件)。
+- 新增開發用鬼展示場景 `scenes/dev_boss.tscn`(單獨舞台、可繞行)。
+- 未解決:模型沒有角、頭小,不太像日本的鬼。
+
 ## 2026-10-22(再研究日式建築:山牆、神社本殿)
 - 使用者:本殿山牆要加窗、米黃顏色太突兀,並要求「多學習日本的房子」。補查資料(見 `doc/design-refs.md` 新增的山牆段落):山牆是木板或灰泥、沿斜邊有破風板、頂點下有懸魚;神社本殿不用土壁與瓦、床架高。
   - 本殿:牆改為風化素木板(自繪 cedar_board)、屋頂改檜皮葺色(ThatchedRoof001A 貼圖);`JP.hall_details` 第二參數語意改為牆面材質。

@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://bywh4eefyllgt"
-path="res://.godot/imported/Ogre.glb-69a647ebc3ab83e08474516b78070f08.scn"
+uid="uid://q3vqiuoyp760"
+path="res://.godot/imported/Cobra.glb-c8b0383663d723a505356a460bf2527d.scn"
 
 [deps]
 
-source_file="res://assets/models/monsters/Ogre.glb"
-dest_files=["res://.godot/imported/Ogre.glb-69a647ebc3ab83e08474516b78070f08.scn"]
+source_file="res://assets/models/monsters/Cobra.glb"
+dest_files=["res://.godot/imported/Cobra.glb-c8b0383663d723a505356a460bf2527d.scn"]
 
 [params]
 

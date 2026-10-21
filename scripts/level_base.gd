@@ -19,8 +19,9 @@ const PARTICLE_DIR := "res://assets/particles/"
 const INTERACT_RANGE := 2.5
 const FALL_Y := -3.0
 const SCATTER_SEED := 20261021
-const BOSS_MODEL := "res://assets/models/monsters/Ogre.glb"
-const BOSS_SCALE := 1.25
+const BOSS_MODEL := "res://assets/models/monsters/Cobra.glb"
+const BOSS_SCALE := 0.7
+const BOSS_FACING := -PI * 0.5  # 模型的蛇頭朝 +x;轉 -90° 讓它朝 +z,才會面對玩家
 const ENV_DEFAULT := {
 	"sky_top": Color("9fb0bd"),
 	"sky_horizon": Color("e6dfd2"),
@@ -587,31 +588,6 @@ func _setup_boss(center: Vector3, pylon_positions: Array[Vector3], court: Rect2,
 	boss_orb.position = center
 	boss_orb.visible = false
 	add_child(boss_orb)
-	# 繚繞的妖氣:暗紫色小球緩緩上升。
-	var wisp := SphereMesh.new()
-	wisp.radius = 0.12
-	wisp.height = 0.24
-	wisp.radial_segments = 6
-	wisp.rings = 3
-	var wisp_mat := StandardMaterial3D.new()
-	wisp_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	wisp_mat.albedo_color = Color("7a4cc0")
-	wisp.material = wisp_mat
-	var smoke := CPUParticles3D.new()
-	smoke.mesh = wisp
-	smoke.amount = 60
-	smoke.lifetime = 2.2
-	smoke.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-	smoke.emission_sphere_radius = 1.7
-	smoke.direction = Vector3.UP
-	smoke.spread = 40.0
-	smoke.initial_velocity_min = 0.6
-	smoke.initial_velocity_max = 1.6
-	smoke.gravity = Vector3.ZERO
-	smoke.scale_amount_min = 0.5
-	smoke.scale_amount_max = 1.8
-	smoke.scale_amount_curve = _fade_curve()
-	boss_orb.add_child(smoke)
 	boss_light = OmniLight3D.new()
 	boss_light.position = center
 	boss_light.light_color = Color("a070ff")
@@ -690,39 +666,55 @@ func _boss_cone(radius: float, height: float, mat: Material, pos: Vector3, rot_z
 
 
 func _build_boss_body() -> Node3D:
-	## 妖氣之主:被妖氣侵蝕的「鬼」(Poly Pizza「Ogre」by joney_lol,CC BY 3.0)。紅色身體換成流動的暗紅妖氣貼圖,浮在庭院上空;模型沒有動畫,以呼吸般的縮放與晃動代替。
+	## 妖氣之主:被妖氣侵蝕的大蛇(Poly Pizza「Cobra」by jeremy,CC BY 3.0)。盤踞在庭院地面,頭高高立起;
+	## 模型沒有動畫,以呼吸般的縮放與左右擺動代替。boss_model 是放在蛇身中心、腳底貼地的支點。
 	var root := Node3D.new()
-	boss_model = (load(BOSS_MODEL) as PackedScene).instantiate() as Node3D
-	boss_model.scale = Vector3.ONE * BOSS_SCALE
-	boss_model.position = Vector3(0, -2.4, 0)
+	boss_model = Node3D.new()
+	boss_model.position = Vector3(0, -boss_center.y, 0)
 	root.add_child(boss_model)
-	var body_mat := ShaderMaterial.new()
-	body_mat.shader = load("res://assets/shaders/miasma_body.gdshader") as Shader
-	body_mat.set_shader_parameter("smoke", load(PARTICLE_DIR + "smoke_01.png"))
-	body_mat.set_shader_parameter("dark", Color(0.22, 0.03, 0.08))
-	body_mat.set_shader_parameter("light", Color(0.72, 0.14, 0.2))
-	body_mat.set_shader_parameter("rim", Color(0.7, 0.35, 1.0))
-	for mi in boss_model.find_children("*", "MeshInstance3D", true, false):
+	var snake := (load(BOSS_MODEL) as PackedScene).instantiate() as Node3D
+	snake.scale = Vector3.ONE * BOSS_SCALE
+	snake.rotation.y = BOSS_FACING
+	boss_model.add_child(snake)
+	# 把蛇身的包圍盒中心移到支點上、底面貼地。
+	var bb := AABB()
+	var first := true
+	for mi in snake.find_children("*", "MeshInstance3D", true, false):
 		var inst := mi as MeshInstance3D
-		for k in inst.mesh.get_surface_count():
-			var mat := inst.mesh.surface_get_material(k) as StandardMaterial3D
-			if mat == null:
-				continue
-			var lum := mat.albedo_color.get_luminance()
-			if lum > 0.3 and lum < 0.85:
-				inst.set_surface_override_material(k, body_mat)  # 紅色的身體 → 流動的妖氣貼圖
-			else:
-				var dim := mat.duplicate() as StandardMaterial3D
-				dim.albedo_color = dim.albedo_color * Color(0.8, 0.7, 0.85)
-				inst.set_surface_override_material(k, dim)
+		var rel := Transform3D.IDENTITY  # inst 相對於 snake 根的變換(此時尚未加入場景樹,不能用 global_transform)
+		var n: Node = inst
+		while n != null and n != snake:
+			rel = (n as Node3D).transform * rel
+			n = n.get_parent()
+		var b := rel * inst.get_aabb()
+		bb = b if first else bb.merge(b)
+		first = false
+	snake.position = -Vector3(bb.get_center().x, bb.position.y, bb.get_center().z) * BOSS_SCALE
+	# 材質:身體貼樹皮紋(蛇鱗般粗糙),黑色部分(眼、口)改成發光的紅色。
+	var body := StandardMaterial3D.new()
+	body.albedo_texture = load("res://assets/textures/Bark014/Bark014_1K-JPG_Color.jpg")
+	body.albedo_color = Color(0.55, 0.36, 0.42)
+	body.roughness = 0.6
+	body.uv1_triplanar = true
+	body.uv1_scale = Vector3.ONE * 0.35
+	var glow := StandardMaterial3D.new()
+	glow.albedo_color = Color(1.0, 0.12, 0.08)
+	glow.emission_enabled = true
+	glow.emission = Color(1.0, 0.08, 0.04)
+	glow.emission_energy_multiplier = 2.5
+	for mi in snake.find_children("*", "MeshInstance3D", true, false):
+		var inst := mi as MeshInstance3D
+		if inst.mesh.get_surface_count() >= 3:
+			inst.set_surface_override_material(0, body)
+			inst.set_surface_override_material(1, glow)
 	boss_arms.clear()
 	return root
 
 
 func _animate_boss() -> void:
 	if boss_model != null:
-		boss_model.scale = Vector3(1.0, 1.0 + sin(time * 1.8) * 0.025, 1.0) * BOSS_SCALE
-		boss_model.rotation.z = sin(time * 1.1) * 0.05
+		boss_model.scale = Vector3(1.0, 1.0 + sin(time * 1.8) * 0.025, 1.0)
+		boss_model.rotation.y = sin(time * 1.1) * 0.12
 	for i in boss_arms.size():
 		var a := float(i) * TAU / float(boss_arms.size()) + time * 0.35
 		var arm: Array = boss_arms[i]
