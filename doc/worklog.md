@@ -1,6 +1,8 @@
 # Worklog
 
 ## 2026-10-21
+- 新增序章「春夜」(`prologue.gd`、`dialogue.gd`、共用基底 `level_base.gd`,第一章已改繼承基底):夜景 → 跳上石階 → 淨化教學妖氣 → 白狐長老對話 → 傳送門鳥居 → 淡出進第一章。以腳本模擬輸入整段跑通。
+- 修正:淨化花瓣原本是平面粉色方塊(QuadMesh),改用 Quaternius `Petal_1` 網格 + 隨機旋轉/縮放;傳送門原本是實心白面,改為邊緣羽化的放射漸層光暈。
 - 處理遺留項目:狐狸改用 Quaternius CC0 紅狐(Poly Pizza,0.96 MB,24 組動畫);內嵌 Noto Sans TC 字型取代系統字型。資產體積評估後暫不上 Git LFS。
 - `player.gd`:狐狸依狀態切換 Idle / Gallop / Gallop_Jump(glTF 動畫預設不循環,需手動設 loop_mode)。模型朝 +Z,以 `FOX_YAW_OFFSET = PI` 轉向;縮放 0.45、碰撞膠囊 0.4 × 1.0;鏡頭拉近至 (0, 6.5, 7.5)。
 - 以腳本模擬輸入(前進、跳躍)驗證動畫狀態與移動速度;渲染截圖確認外觀。

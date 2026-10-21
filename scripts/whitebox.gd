@@ -18,6 +18,7 @@ const C_CREAM := Color("efe6d6")
 const C_MIASMA := Color("4b3a63")
 const C_MOUNTAIN := Color("8fa0ad")
 
+const UI_FONT_PATH := "res://assets/fonts/NotoSansTC-Regular.otf"
 const TEX_DIR := "res://assets/textures/"
 const NATURE_DIR := "res://assets/models/nature/"
 const LEAF_MASK_PATH := "res://assets/models/nature/Leaves_TwistedTree.png"
@@ -26,15 +27,32 @@ const TORII_MESH_PATH :="res://assets/models/torii/shinto-shrine-gate.obj"
 const TORII_FOOT_OFFSET := 7.05
 
 
-static func material(color: Color, emissive := false) -> StandardMaterial3D:
+static func material(color: Color, emissive := false, energy: float = 0.8) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = color
 	mat.roughness = 1.0
 	if emissive:
 		mat.emission_enabled = true
 		mat.emission = color
-		mat.emission_energy_multiplier = 0.8
+		mat.emission_energy_multiplier = energy
 	return mat
+
+
+static var _ui_font: FontFile
+
+
+static func label(parent: Node, font_size: int) -> Label:
+	## HUD / 對話共用的 Label:內嵌 Noto Sans TC(Godot 預設字型沒有中日文字)、米白字加墨色描邊。
+	if _ui_font == null:
+		_ui_font = load(UI_FONT_PATH) as FontFile
+	var l := Label.new()
+	l.add_theme_font_override("font", _ui_font)
+	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_color_override("font_color", C_CREAM)
+	l.add_theme_color_override("font_outline_color", C_SUMI)
+	l.add_theme_constant_override("outline_size", 6)
+	parent.add_child(l)
+	return l
 
 
 static var _tex_cache := {}

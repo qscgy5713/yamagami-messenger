@@ -26,9 +26,14 @@ yamagami-messenger/
 ├── assets/
 │   ├── models/           # 鳥居、Quaternius 樹木植被(來源與授權見 doc/assets.md)
 │   └── textures/         # ambientCG PBR 材質(CC0)
-├── scenes/chapter1.tscn  # 主場景(掛載 chapter1.gd)
+├── scenes/
+│   ├── prologue.tscn     # 主場景(序章,掛載 prologue.gd)
+│   └── chapter1.tscn     # 第一章
 ├── scripts/
-│   ├── chapter1.gd       # 第一章白盒:地形、機關、妖氣源、HUD
+│   ├── level_base.gd     # 關卡基底:環境、玩家、HUD、妖氣源淨化、植被
+│   ├── prologue.gd       # 序章:教學、白狐長老對話、傳送門
+│   ├── chapter1.gd       # 第一章白盒:地形、機關
+│   ├── dialogue.gd       # 對話框(打字機效果)
 │   ├── whitebox.gd       # 共用工具:色票、貼圖材質、方塊、輸入綁定
 │   └── player.gd         # 狐狸移動 / 跳躍
 └── doc/

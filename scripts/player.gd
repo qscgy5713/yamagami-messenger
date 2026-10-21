@@ -13,6 +13,8 @@ const FOX_YAW_OFFSET := PI  ## 模型朝 +Z,而遊戲的「前方」是 -Z。
 const ANIM_BLEND := 0.15
 
 var camera: Camera3D
+## 對話、過場時鎖住操作(仍會受重力影響)。
+var controls_locked := false
 
 var _anim: AnimationPlayer
 var _current_anim := ""
@@ -25,10 +27,12 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity += get_gravity() * delta
-	elif Input.is_action_just_pressed("jump"):
+	elif not controls_locked and Input.is_action_just_pressed("jump"):
 		velocity.y = JUMP_VELOCITY
 
-	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var input := Vector2.ZERO
+	if not controls_locked:
+		input = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var cam_basis := camera.global_transform.basis if camera else Basis.IDENTITY
 	var dir := cam_basis * Vector3(input.x, 0.0, input.y)
 	dir.y = 0.0
