@@ -12,20 +12,24 @@
 2. 用 Godot 開啟本資料夾的 `project.godot`。
 
 ## 啟動 / 使用方式
-在編輯器按 F5 執行。目前為原型:
+在編輯器按 F5 執行(或 `godot --path .`)。目前為第一章「櫻之社」白盒:
 - 移動:WASD / 方向鍵
 - 跳躍:空白鍵
-- 踩上黃色踏板,前方石門會下沉,後方是鳥居
+- 淨化:靠近妖氣源按 E
+- 目標:淨化 3 處神木(池中小島、東邊高台、庭院石籠),打開主殿並進入
 
 ## 目錄結構
 ```
 yamagami-messenger/
 ├── project.godot
 ├── README.md
-├── assets/models/        # 第三方模型(來源與授權見 doc/assets.md)
-├── scenes/main.tscn      # 主場景(掛載 main.gd)
+├── assets/
+│   ├── models/           # 鳥居、Quaternius 樹木植被(來源與授權見 doc/assets.md)
+│   └── textures/         # ambientCG PBR 材質(CC0)
+├── scenes/chapter1.tscn  # 主場景(掛載 chapter1.gd)
 ├── scripts/
-│   ├── main.gd           # 以程式碼建立原型關卡
+│   ├── chapter1.gd       # 第一章白盒:地形、機關、妖氣源、HUD
+│   ├── whitebox.gd       # 共用工具:色票、貼圖材質、方塊、輸入綁定
 │   └── player.gd         # 狐狸移動 / 跳躍
 └── doc/
     ├── plan.md

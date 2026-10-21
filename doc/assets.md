@@ -22,7 +22,24 @@
 
 結論:石燈籠用 Japanese Toro(CC-BY);鳥居用 Gumroad 或 itch.io 那兩個(口頭宣稱可商用,但無正式授權,建議留下頁面截圖並在製作名單標示),或自建。
 
-## 已下載到專案
+## 已下載並使用(2026-10-21)
+### ambientCG PBR 材質(CC0,1K-JPG,放在 `assets/textures/<ID>/`)
+| ID | 用途 |
+|----|------|
+| Ground037 | 地面(苔土) |
+| Pathway004 | 參道 |
+| PavingStones138 | 神社庭院 |
+| Rock064 | 石牆、高台、石籠、石燈籠 |
+| WoodFloor064 | 木門、主殿牆(染朱紅) |
+| RoofingTiles013A | 主殿瓦屋頂 |
+| Bark014 | 已下載,尚未使用(樹幹改用 Quaternius 模型自帶貼圖) |
+
+### Quaternius Stylized Nature MegaKit — Standard 版(CC0,放在 `assets/models/nature/`)
+- 取自 25 個模型:TwistedTree 1–4、CommonTree 1–2、Petal、草、灌木、花、蕨、三葉草、石頭、卵石,共約 29 MB(原 zip 99 MB,其餘未放進專案)。
+- 授權檔:`assets/models/nature/License_Standard.txt`(CC0 1.0)。
+- 免費版樹葉只有紅 / 綠;櫻花色是用白色葉片遮罩 `Leaves_TwistedTree.png` 在程式裡染色(`WB.leaf_material`)。粉紫櫻色樹屬於付費 Pro 版,未使用。
+
+## 已下載到專案(其他)
 | 檔案 | 位置 | 來源 |
 |------|------|------|
 | `shinto-shrine-gate.obj`(19 kB) | `assets/models/torii/` | itch.io olde-tinkerer / Torii Gate(2026-10-21 下載) |
