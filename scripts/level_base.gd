@@ -40,6 +40,8 @@ var respawn_pos := Vector3.ZERO
 var time := 0.0
 var msg_serial := 0
 var scene_cache := {}
+var world_env: Environment
+var _faded: Dictionary = {}  # 目前被鏡頭擋住而半透明的 GeometryInstance3D
 var prompt_enabled := true
 
 var hud_title: Label
@@ -93,6 +95,11 @@ func _is_free(_p: Vector3) -> bool:
 	return true
 
 
+func _bloom_color() -> Color:
+	## 淨化後神木葉色與花瓣顏色(春:櫻色;夏:新綠)。
+	return WB.C_SAKURA
+
+
 func _scatter_bounds() -> Rect2:
 	return Rect2(-29.0, -54.0, 58.0, 98.0)
 
@@ -114,6 +121,7 @@ func _process(delta: float) -> void:
 	time += delta
 	camera.global_position = player.global_position + CAMERA_OFFSET
 	camera.look_at(player.global_position + Vector3.UP, Vector3.UP)
+	_update_occlusion()
 
 	if player.global_position.y < FALL_Y:
 		player.global_position = respawn_pos
@@ -132,6 +140,35 @@ func _process(delta: float) -> void:
 		_purify(nearest)
 
 	_level_process(delta)
+
+
+# ---------- 鏡頭遮擋 ----------
+
+func _update_occlusion() -> void:
+	## 鏡頭到玩家之間若有牆 / 高台等靜態物件擋住,就把它們變半透明,不讓角色被遮住。
+	var space := get_world_3d().direct_space_state
+	var from := camera.global_position
+	var to := player.global_position + Vector3.UP * 0.8
+	var exclude: Array[RID] = [player.get_rid()]
+	var blocking: Dictionary = {}
+	for _i in 4:
+		var query := PhysicsRayQueryParameters3D.create(from, to)
+		query.exclude = exclude
+		var hit := space.intersect_ray(query)
+		if hit.is_empty():
+			break
+		var body := hit["collider"] as Node
+		exclude.append(hit["rid"])
+		if body is StaticBody3D:
+			for c in body.get_children():
+				if c is GeometryInstance3D:
+					blocking[c] = true
+	for g: GeometryInstance3D in _faded.keys():
+		if is_instance_valid(g) and not blocking.has(g):
+			g.transparency = 0.0
+	for g: GeometryInstance3D in blocking.keys():
+		g.transparency = 0.82
+	_faded = blocking
 
 
 # ---------- 材質與環境 ----------
@@ -176,9 +213,10 @@ func _setup_environment() -> void:
 		env.glow_enabled = true
 		env.glow_intensity = 0.9
 		env.glow_hdr_threshold = 0.9
-	var world_env := WorldEnvironment.new()
-	world_env.environment = env
-	add_child(world_env)
+	world_env = env
+	var world_env_node := WorldEnvironment.new()
+	world_env_node.environment = env
+	add_child(world_env_node)
 
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = cfg["sun_rotation"]
@@ -290,6 +328,10 @@ func _say(lines: Array) -> void:
 func _wait_until(cond: Callable) -> void:
 	while not cond.call():
 		await get_tree().process_frame
+
+
+func _set_fog(density: float, duration: float = 1.5) -> void:
+	create_tween().tween_property(world_env, "fog_density", density, duration)
 
 
 func _move_door(door: Node3D, target_y: float) -> void:
@@ -442,8 +484,8 @@ func _make_source(orb_pos: Vector3, tree_pos: Vector3, checkpoint: Vector3, tree
 	s.petals.angle_max = 360.0
 	s.petals.angular_velocity_min = -240.0
 	s.petals.angular_velocity_max = 240.0
-	s.petals.scale_amount_min = 1.2
-	s.petals.scale_amount_max = 2.2
+	s.petals.scale_amount_min = _burst_scale().x
+	s.petals.scale_amount_max = _burst_scale().y
 	s.petals.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 	s.petals.emission_sphere_radius = 1.8
 	add_child(s.petals)
@@ -452,13 +494,17 @@ func _make_source(orb_pos: Vector3, tree_pos: Vector3, checkpoint: Vector3, tree
 	sources.append(s)
 
 
+func _burst_scale() -> Vector2:
+	return Vector2(1.2, 2.2)
+
+
 func _petal_mesh() -> Mesh:
 	## 花瓣粒子用 Quaternius 的 Petal 模型網格(帶原本的材質),不是平面方塊。
 	var inst := _load_scene("Petal_1").instantiate()
 	var mi := (inst if inst is MeshInstance3D else inst.find_children("*", "MeshInstance3D", true, false)[0]) as MeshInstance3D
 	var mesh: Mesh = mi.mesh.duplicate()
 	inst.free()
-	var mat := WB.material(WB.C_SAKURA)
+	var mat := WB.material(_bloom_color())
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	for i in mesh.get_surface_count():
 		mesh.surface_set_material(i, mat)
@@ -471,7 +517,7 @@ func _purify(s: Source) -> void:
 	respawn_pos = s.checkpoint
 	var tw := create_tween().set_parallel()
 	tw.tween_property(s.orb, "scale", Vector3.ZERO, 0.6)
-	tw.tween_property(s.leaf_mat, "albedo_color", WB.C_SAKURA, 1.4)
+	tw.tween_property(s.leaf_mat, "albedo_color", _bloom_color(), 1.4)
 	tw.chain().tween_callback(s.orb.hide)
 	s.petals.emitting = true
 	_on_source_purified(s)

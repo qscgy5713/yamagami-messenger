@@ -28,11 +28,15 @@ yamagami-messenger/
 │   └── textures/         # ambientCG PBR 材質(CC0)
 ├── scenes/
 │   ├── prologue.tscn     # 主場景(序章,掛載 prologue.gd)
-│   └── chapter1.tscn     # 第一章
+│   ├── chapter1.tscn     # 第一章
+│   ├── chapter2.tscn     # 第二章
+│   └── chapter3.tscn     # 第三章
 ├── scripts/
 │   ├── level_base.gd     # 關卡基底:環境、玩家、HUD、妖氣源淨化、植被
 │   ├── prologue.gd       # 序章:教學、白狐長老對話、傳送門
 │   ├── chapter1.gd       # 第一章白盒:地形、機關
+│   ├── chapter2.gd       # 第二章白盒:木筏渡河、夏日黃昏
+│   ├── chapter3.gd       # 第三章白盒:迷霧、石牆迷宮
 │   ├── dialogue.gd       # 對話框(打字機效果)
 │   ├── whitebox.gd       # 共用工具:色票、貼圖材質、方塊、輸入綁定
 │   └── player.gd         # 狐狸移動 / 跳躍

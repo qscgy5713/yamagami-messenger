@@ -123,6 +123,32 @@ static func invisible_wall(size: Vector3, pos: Vector3) -> StaticBody3D:
 	return body
 
 
+static func leaf_mesh(color: Color, vertex_color := false) -> ArrayMesh:
+	## 楓葉形小網格(五裂星形、略微彎曲、雙面),給落葉粒子用。vertex_color 時顏色由粒子色票決定。
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var pts: Array[Vector3] = []
+	var profile := [[-36.0, 0.17], [-15.0, 0.33], [0.0, 0.5], [15.0, 0.33]]  # 每個裂片:[角度, 半徑]
+	for lobe in 5:
+		for pr in profile:
+			var a := deg_to_rad(float(lobe) * 72.0 + float(pr[0]))
+			var r: float = pr[1]
+			pts.append(Vector3(sin(a) * r, r * r * 0.5, -cos(a) * r))
+	for i in pts.size():
+		for v: Vector3 in [Vector3(0.0, 0.0, 0.0), pts[i], pts[(i + 1) % pts.size()]]:
+			st.add_vertex(v)
+	# 葉柄。
+	for v: Vector3 in [Vector3(-0.03, 0.0, 0.0), Vector3(0.03, 0.0, 0.0), Vector3(0.0, -0.02, 0.38)]:
+		st.add_vertex(v)
+	st.generate_normals()
+	var mesh := st.commit()
+	var mat := material(color)
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.vertex_color_use_as_albedo = vertex_color
+	mesh.surface_set_material(0, mat)
+	return mesh
+
+
 static func torii(pos: Vector3, scale: float = 1.0) -> MeshInstance3D:
 	var inst := MeshInstance3D.new()
 	inst.mesh = load(TORII_MESH_PATH) as Mesh

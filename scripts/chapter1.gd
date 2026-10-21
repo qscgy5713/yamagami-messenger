@@ -5,6 +5,7 @@ extends LevelBase
 
 const SOURCES_FOR_GATE := 2
 const SOURCES_TOTAL := 3
+const NEXT_SCENE := "res://scenes/chapter2.tscn"
 
 var gate_door: StaticBody3D
 var cage_door: StaticBody3D
@@ -211,6 +212,9 @@ func _on_hall_entered(body: Node3D) -> void:
 	hud_msg.text = "第一章・櫻之社 完"
 	hud_msg.visible = true
 	hud_hint.text = ""
+	await get_tree().create_timer(2.5).timeout
+	await _fade(1.0, 1.4)
+	get_tree().change_scene_to_file(NEXT_SCENE)
 
 
 func _update_hud() -> void:
