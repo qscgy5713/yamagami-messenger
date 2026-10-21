@@ -419,7 +419,7 @@ func _scatter_vegetation(density: float = 1.0) -> void:
 	_scatter("Pebble_Round_2", int(14 * density), 1.0, 1.8, rng)
 
 
-func _add_lantern(pos: Vector3, lit: bool = false) -> void:
+func _add_lantern(pos: Vector3, lit: bool = false) -> MeshInstance3D:
 	## 簡化石燈籠:基座、竿、火袋、笠(石材貼圖,火袋發光)。lit 時加暖色點光源(夜晚用)。
 	var base := BoxMesh.new()
 	base.size = Vector3(0.9, 0.3, 0.9)
@@ -430,7 +430,8 @@ func _add_lantern(pos: Vector3, lit: bool = false) -> void:
 	var lamp := BoxMesh.new()
 	lamp.size = Vector3(0.7, 0.55, 0.7)
 	var lamp_mat := WB.material(WB.C_GOLD, true, 2.5 if lit else 0.8)
-	add_child(WB.mesh_instance(lamp, lamp_mat, pos + Vector3(0, 1.55, 0)))
+	var lamp_inst := WB.mesh_instance(lamp, lamp_mat, pos + Vector3(0, 1.55, 0))
+	add_child(lamp_inst)
 	var roof := CylinderMesh.new()
 	roof.top_radius = 0.0
 	roof.bottom_radius = 0.75
@@ -447,6 +448,7 @@ func _add_lantern(pos: Vector3, lit: bool = false) -> void:
 		light.omni_range = 7.5
 		light.shadow_enabled = false
 		add_child(light)
+	return lamp_inst
 
 
 # ---------- 神木與妖氣源 ----------
