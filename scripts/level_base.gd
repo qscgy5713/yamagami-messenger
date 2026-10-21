@@ -4,7 +4,7 @@ extends Node3D
 ## 子類別實作虛擬函式(_environment_config、_build_level、_start …),_ready 流程由這裡統一。
 
 class Source:
-	var orb: MeshInstance3D
+	var orb: Node3D
 	var base_y: float
 	var leaf_mat: StandardMaterial3D
 	var petals: CPUParticles3D
@@ -13,10 +13,14 @@ class Source:
 	var marker: MeshInstance3D  # 嗅覺時顯示的光柱
 	var bloom := Color(0, 0, 0, 0)  # 淨化後的葉色;alpha 為 0 時用 _bloom_color()
 
-const CAMERA_OFFSET := Vector3(0.0, 6.5, 7.5)
+const CAM_PITCH_DEFAULT := 0.71  ## 約 41°,與舊版固定視角相同
+const CAM_DIST_DEFAULT := 9.9
+const PARTICLE_DIR := "res://assets/particles/"
 const INTERACT_RANGE := 2.5
 const FALL_Y := -3.0
 const SCATTER_SEED := 20261021
+const BOSS_MODEL := "res://assets/models/monsters/Ghost.glb"
+const BOSS_SCALE := 1.3
 const ENV_DEFAULT := {
 	"sky_top": Color("9fb0bd"),
 	"sky_horizon": Color("e6dfd2"),
@@ -62,7 +66,8 @@ var boss_phase := 0
 var boss_center := Vector3.ZERO
 var boss_court := Rect2()
 var boss_lines: Dictionary = {}
-var boss_orb: MeshInstance3D
+var boss_orb: Node3D
+var boss_arms: Array = []  # 每條觸手是一串球體節點
 var boss_light: OmniLight3D
 var boss_pylons: Array[Dictionary] = []  # {node, cap, lit}
 var boss_rings: Array[Dictionary] = []  # {node, r}
@@ -70,6 +75,12 @@ var boss_ring_timer := 0.0
 var boss_hit_cooldown := 0.0
 var water_materials: Array[StandardMaterial3D] = []
 var _cam_ready := false
+var cam_yaw := 0.0
+var cam_pitch := CAM_PITCH_DEFAULT
+var cam_dist := CAM_DIST_DEFAULT
+var trees: Array[Dictionary] = []  # {meshes, center, radius, faded}:樹冠擋住鏡頭時變半透明
+var m_plaster: Material
+var swayers: Array[Dictionary] = []  # 隨風輕擺的草花:{node, phase, amp}
 var pause_layer: CanvasLayer
 var _faded: Dictionary = {}  # 目前被鏡頭擋住而半透明的 GeometryInstance3D
 var prompt_enabled := true
@@ -192,6 +203,7 @@ func _process(delta: float) -> void:
 	if can_purify and Input.is_action_just_pressed("interact"):
 		_purify(nearest)
 
+	_update_sway()
 	_update_quest(delta)
 	_update_seek()
 	_update_boss(delta)
@@ -202,14 +214,30 @@ func _process(delta: float) -> void:
 # ---------- 鏡頭 ----------
 
 func _update_camera(delta: float) -> void:
-	## 平滑跟隨玩家(指數趨近),避免鏡頭隨角色的每個小動作抖動。
-	var target := player.global_position + CAMERA_OFFSET
+	## 可旋轉 / 縮放的第三人稱鏡頭:Z / C 或按住右鍵拖曳轉視角,滾輪縮放;指數趨近平滑跟隨。
+	cam_yaw += Input.get_axis("cam_left", "cam_right") * 1.8 * delta
+	var horiz := cos(cam_pitch) * cam_dist
+	var offset := Vector3(sin(cam_yaw) * horiz, sin(cam_pitch) * cam_dist, cos(cam_yaw) * horiz)
+	var target := player.global_position + offset
 	if _cam_ready:
 		camera.global_position = camera.global_position.lerp(target, 1.0 - exp(-10.0 * delta))
 	else:
 		camera.global_position = target
 		_cam_ready = true
 	camera.look_at(player.global_position + Vector3.UP, Vector3.UP)
+	_update_tree_fade()
+
+
+func _update_tree_fade() -> void:
+	var from := camera.global_position
+	var to := player.global_position + Vector3.UP
+	for t in trees:
+		var c: Vector3 = t["center"]
+		var want := Geometry3D.get_closest_point_to_segment(c, from, to).distance_to(c) < float(t["radius"])
+		if want != t["faded"]:
+			t["faded"] = want
+			for m: MeshInstance3D in t["meshes"]:
+				m.transparency = 0.8 if want else 0.0
 
 
 # ---------- 鏡頭遮擋 ----------
@@ -313,22 +341,34 @@ func _build_charm(pos: Vector3) -> void:
 
 
 func _make_marker(pos: Vector3, color: Color) -> MeshInstance3D:
-	## 嗅覺光柱:穿透牆壁與霧、只在按住嗅覺時顯示。
-	var pillar := CylinderMesh.new()
-	pillar.top_radius = 0.25
-	pillar.bottom_radius = 0.25
-	pillar.height = 16.0
-	pillar.radial_segments = 8
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.no_depth_test = true
-	mat.disable_fog = true
-	mat.albedo_color = Color(color, 0.5)
-	var inst := WB.mesh_instance(pillar, mat, pos + Vector3(0, 7.0, 0))
+	## 嗅覺光柱:Kenney 光束貼圖的直立看板(只繞 Y 軸轉向鏡頭),穿透牆壁與霧、只在按住嗅覺時顯示。
+	var beam_quad := QuadMesh.new()
+	beam_quad.size = Vector2(2.4, 16.0)
+	var beam := _beam_material("trace_07_add", Color(color, 0.5))
+	var inst := WB.mesh_instance(beam_quad, beam, pos + Vector3(0, 7.0, 0))
+	var glow_quad := QuadMesh.new()
+	glow_quad.size = Vector2(5.0, 16.0)
+	inst.add_child(WB.mesh_instance(glow_quad, _beam_material("trace_05_add", Color(color, 0.22)), Vector3.ZERO))
+	var sparks := _sprite_particles("star_04_add", Color(color, 1.0), true, 18, 2.5, Vector2(0.3, 0.6), 0.0, 0.5, 2.5, true, true)
+	sparks.position = Vector3(0, -7.0, 0)
+	inst.add_child(sparks)
 	inst.visible = false
 	add_child(inst)
 	return inst
+
+
+func _beam_material(tex_name: String, tint: Color) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_texture = load(PARTICLE_DIR + tex_name + ".png")
+	mat.albedo_color = tint
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
+	mat.no_depth_test = true
+	mat.disable_fog = true
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return mat
 
 
 func _update_quest(delta: float) -> void:
@@ -401,6 +441,7 @@ func _build_dash_platforms(a: Vector3, gap: float = 10.5) -> Vector3:
 	add_child(WB.box_body(Vector3(4, 1, 4), m_stone, b))
 	for p in [a, b]:
 		scatter_blocked.append(Rect2(p.x - 3.0, p.z - 3.0, 6.0, 6.0))
+		_dress_block(Vector3(p.x, 0.0, p.z), Vector2(4, 4), 1.0, int(p.x))
 	return b + Vector3(0.0, 1.4, 0.0)
 
 
@@ -487,12 +528,8 @@ func _setup_boss(center: Vector3, pylon_positions: Array[Vector3], court: Rect2,
 	boss_center = center
 	boss_court = court
 	boss_lines = lines
-	var orb := SphereMesh.new()
-	orb.radius = 1.6
-	orb.height = 3.2
-	orb.radial_segments = 16
-	orb.rings = 8
-	boss_orb = WB.mesh_instance(orb, WB.material(Color("2a1238"), true, 0.9), center)
+	boss_orb = _build_boss_body()
+	boss_orb.position = center
 	boss_orb.visible = false
 	add_child(boss_orb)
 	# 繚繞的妖氣:暗紫色小球緩緩上升。
@@ -554,6 +591,7 @@ func _update_boss(delta: float) -> void:
 	if boss_phase != 1:
 		return
 	boss_orb.position.y = boss_center.y + sin(time * 2.0) * 0.25
+	_animate_boss()
 	boss_hit_cooldown = maxf(boss_hit_cooldown - delta, 0.0)
 	if not player.controls_locked:
 		boss_ring_timer -= delta
@@ -572,6 +610,64 @@ func _update_boss(delta: float) -> void:
 		var d := Vector2(player.global_position.x - boss_center.x, player.global_position.z - boss_center.z).length()
 		if boss_hit_cooldown <= 0.0 and absf(d - ring["r"]) < 0.7 and player.global_position.y < 1.6:
 			_boss_hit()
+
+
+func _boss_sphere(radius: float, mat: Material, pos: Vector3, squash := Vector3.ONE) -> MeshInstance3D:
+	var m := SphereMesh.new()
+	m.radius = radius
+	m.height = radius * 2.0
+	m.radial_segments = 12
+	m.rings = 6
+	var inst := WB.mesh_instance(m, mat, pos)
+	inst.scale = squash
+	return inst
+
+
+func _boss_cone(radius: float, height: float, mat: Material, pos: Vector3, rot_z_deg: float) -> MeshInstance3D:
+	var m := CylinderMesh.new()
+	m.top_radius = 0.0
+	m.bottom_radius = radius
+	m.height = height
+	m.radial_segments = 8
+	var inst := WB.mesh_instance(m, mat, pos)
+	inst.rotation_degrees.z = rot_z_deg
+	return inst
+
+
+func _build_boss_body() -> Node3D:
+	## 妖氣之主:Quaternius「Ghost」模型(CC0),放大並染成暗紫,播放飛行待機動畫。
+	var root := Node3D.new()
+	var model := (load(BOSS_MODEL) as PackedScene).instantiate() as Node3D
+	model.scale = Vector3.ONE * BOSS_SCALE
+	model.position = Vector3(0, -1.5, 0)
+	root.add_child(model)
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		var inst := mi as MeshInstance3D
+		for k in inst.mesh.get_surface_count():
+			var mat := inst.mesh.surface_get_material(k) as StandardMaterial3D
+			if mat != null:
+				var dim := mat.duplicate() as StandardMaterial3D
+				dim.albedo_color = dim.albedo_color * Color(0.62, 0.55, 0.72)
+				inst.set_surface_override_material(k, dim)
+	var anim := model.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	if anim != null:
+		var idle := "CharacterArmature|Flying_Idle"
+		anim.get_animation(idle).loop_mode = Animation.LOOP_LINEAR
+		anim.play(idle)
+	boss_arms.clear()
+	return root
+
+
+func _animate_boss() -> void:
+	for i in boss_arms.size():
+		var a := float(i) * TAU / float(boss_arms.size()) + time * 0.35
+		var arm: Array = boss_arms[i]
+		for k in arm.size():
+			var dist := 1.0 + float(k) * 0.55
+			var sway := sin(time * 2.2 + float(k) * 0.9 + float(i)) * 0.3
+			(arm[k] as Node3D).position = Vector3(cos(a) * dist, -0.1 - float(k) * 0.28 + sway, sin(a) * dist)
+	var to_player := player.global_position - boss_orb.global_position
+	boss_orb.rotation.y = lerp_angle(boss_orb.rotation.y, atan2(to_player.x, to_player.z), 0.08)
 
 
 func _fade_curve() -> Curve:
@@ -606,13 +702,13 @@ func _start_boss() -> void:
 
 func _spawn_ring() -> void:
 	var torus := TorusMesh.new()
-	torus.inner_radius = 0.9
+	torus.inner_radius = 0.84
 	torus.outer_radius = 1.0
 	torus.rings = 48
 	torus.ring_segments = 6
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = Color("b78cff")
+	mat.albedo_color = Color("e2c8ff")
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.albedo_color.a = 0.85
 	var node := WB.mesh_instance(torus, mat, Vector3(boss_center.x, 0.3, boss_center.z))
@@ -729,6 +825,16 @@ func _show_title_card() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause"):
 		_toggle_pause()
+	elif event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+		var motion := event as InputEventMouseMotion
+		cam_yaw -= motion.relative.x * 0.005
+		cam_pitch = clampf(cam_pitch + motion.relative.y * 0.004, 0.35, 1.2)
+	elif event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+		var button := (event as InputEventMouseButton).button_index
+		if button == MOUSE_BUTTON_WHEEL_UP:
+			cam_dist = maxf(cam_dist - 1.0, 5.0)
+		elif button == MOUSE_BUTTON_WHEEL_DOWN:
+			cam_dist = minf(cam_dist + 1.0, 16.0)
 
 
 func _toggle_pause() -> void:
@@ -830,7 +936,8 @@ func _setup_materials() -> void:
 	m_paving = WB.tex("PavingStones138", 0.5)
 	m_stone = WB.tex("Rock064", 0.4)
 	m_stone_dark = WB.tex("Rock064", 0.4, Color("a9a9a9"))
-	m_wood = WB.tex("WoodFloor064", 0.5)
+	m_wood = WB.tex("WoodFloor064", 0.5, Color("c8a58a"))
+	m_plaster = WB.tex("Plaster001", 0.35, Color("f1e6d2"))
 	m_paint_red = WB.tex("WoodFloor064", 0.5, Color("e0654a"))
 	m_roof = WB.tex("RoofingTiles013A", 0.5, Color("8a8a92"))
 
@@ -1026,6 +1133,7 @@ func _make_tree(pos: Vector3, leaf_mat: Material, variant: int, tree_scale: floa
 	tree.scale = Vector3.ONE * tree_scale
 	_swap_leaf_material(tree, leaf_mat)
 	add_child(tree)
+	_register_tree(tree)
 	# 樹幹碰撞,避免穿過去。
 	var trunk := StaticBody3D.new()
 	trunk.position = pos + Vector3(0, 1.5, 0)
@@ -1038,6 +1146,194 @@ func _make_tree(pos: Vector3, leaf_mat: Material, variant: int, tree_scale: floa
 	add_child(trunk)
 
 
+func _register_tree(tree: Node3D) -> void:
+	var meshes: Array[MeshInstance3D] = []
+	var box := AABB()
+	var first := true
+	for n in tree.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		meshes.append(mi)
+		var a := mi.global_transform * mi.get_aabb()
+		box = a if first else box.merge(a)
+		first = false
+	if meshes.is_empty():
+		return
+	trees.append({"meshes": meshes, "center": box.get_center(), "radius": maxf(box.size.x, box.size.z) * 0.4, "faded": false})
+
+
+func _sprite_particles(tex_name: String, tint: Color, additive: bool, amount: int, lifetime: float, scale_range: Vector2, ang_vel: float, radius: float, rise: float, fade := true, no_depth := false) -> CPUParticles3D:
+	## 以 Kenney Particle Pack(CC0)貼圖做的看板粒子;additive 用黑底圖加色混合,否則用透明底圖一般混合。
+	var quad := QuadMesh.new()
+	quad.size = Vector2.ONE
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_texture = load(PARTICLE_DIR + tex_name + ".png")
+	mat.albedo_color = tint
+	mat.vertex_color_use_as_albedo = true
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD if additive else BaseMaterial3D.BLEND_MODE_MIX
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mat.billboard_keep_scale = true
+	mat.no_depth_test = no_depth
+	mat.disable_fog = no_depth
+	quad.material = mat
+	var p := CPUParticles3D.new()
+	p.mesh = quad
+	p.amount = amount
+	p.lifetime = lifetime
+	p.preprocess = lifetime
+	p.local_coords = true
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = maxf(radius, 0.001)
+	p.direction = Vector3.UP
+	p.spread = 180.0 if rise <= 0.0 else 25.0
+	p.initial_velocity_min = rise * 0.7
+	p.initial_velocity_max = rise
+	p.gravity = Vector3.ZERO
+	p.angle_min = 0.0
+	p.angle_max = 360.0
+	p.angular_velocity_min = -absf(ang_vel)
+	p.angular_velocity_max = absf(ang_vel)
+	p.scale_amount_min = scale_range.x
+	p.scale_amount_max = scale_range.y
+	if fade:
+		var ramp := Gradient.new()
+		ramp.offsets = PackedFloat32Array([0.0, 0.3, 0.7, 1.0])
+		ramp.colors = PackedColorArray([Color(1, 1, 1, 0), Color(1, 1, 1, 1), Color(1, 1, 1, 1), Color(1, 1, 1, 0)])
+		p.color_ramp = ramp
+	return p
+
+
+func _make_miasma(pos: Vector3) -> Node3D:
+	## 妖氣源:翻湧的暗紫煙霧、旋轉的光環與符印、向上飄散的星點(皆為 Kenney 粒子貼圖)。
+	var root := Node3D.new()
+	root.position = pos
+	root.add_child(_sprite_particles("smoke_05", Color(0.16, 0.07, 0.24, 0.95), false, 6, 4.0, Vector2(1.5, 2.3), 25.0, 0.2, 0.0))
+	root.add_child(_sprite_particles("smoke_01", Color(0.3, 0.12, 0.45, 0.8), false, 4, 3.0, Vector2(1.2, 1.9), 35.0, 0.15, 0.0))
+	root.add_child(_sprite_particles("twirl_02_add", Color(0.62, 0.38, 1.0), true, 3, 3.0, Vector2(2.2, 2.8), 90.0, 0.0, 0.0))
+	root.add_child(_sprite_particles("magic_01_add", Color(0.7, 0.45, 1.0), true, 2, 6.0, Vector2(2.6, 2.6), 20.0, 0.0, 0.0))
+	root.add_child(_sprite_particles("circle_05_add", Color(0.45, 0.2, 0.8), true, 2, 3.0, Vector2(1.2, 1.5), 0.0, 0.0, 0.0))
+	root.add_child(_sprite_particles("star_04_add", Color(0.85, 0.65, 1.0), true, 14, 2.2, Vector2(0.25, 0.5), 0.0, 0.6, 0.7))
+	return root
+
+
+func _make_wall(size: Vector3, pos: Vector3) -> StaticBody3D:
+	## 土塀:石基座 + 灰泥牆身 + 瓦片壓頂 + 朱漆木柱(沿長邊每 4.5 公尺一根),取代純石頭方塊牆。
+	var body := StaticBody3D.new()
+	body.position = pos
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	shape.shape = box
+	body.add_child(shape)
+	var along_x := size.x >= size.z
+	var base_h := minf(0.9, size.y * 0.25)
+	var cap_h := 0.4
+	var wall_h := size.y - base_h - cap_h
+	body.add_child(WB.box_visual(Vector3(size.x + 0.12, base_h, size.z + 0.12), m_stone_dark, Vector3(0, -size.y * 0.5 + base_h * 0.5, 0)))
+	body.add_child(WB.box_visual(Vector3(size.x, wall_h, size.z), m_plaster, Vector3(0, -size.y * 0.5 + base_h + wall_h * 0.5, 0)))
+	var cap_size := Vector3(size.x + (0.3 if along_x else 0.0), cap_h, size.z + (0.0 if along_x else 0.3))
+	cap_size = Vector3(maxf(cap_size.x, size.x + 0.5) if not along_x else cap_size.x, cap_h, maxf(cap_size.z, size.z + 0.5) if along_x else cap_size.z)
+	body.add_child(WB.box_visual(cap_size, m_roof, Vector3(0, size.y * 0.5 - cap_h * 0.5, 0)))
+	var length := size.x if along_x else size.z
+	var posts := int(floor(length / 4.5)) + 1
+	for i in posts:
+		var t := (float(i) / float(maxi(posts - 1, 1)) - 0.5) * (length - 0.4)
+		var post_size := Vector3(0.4, wall_h, size.z + 0.16) if along_x else Vector3(size.x + 0.16, wall_h, 0.4)
+		var post_pos := Vector3(t, -size.y * 0.5 + base_h + wall_h * 0.5, 0) if along_x else Vector3(0, -size.y * 0.5 + base_h + wall_h * 0.5, t)
+		body.add_child(WB.box_visual(post_size, m_paint_red, post_pos))
+	return body
+
+
+func _dress_block(center: Vector3, size_xz: Vector2, top_y: float, seed_offset := 0) -> void:
+	## 把方塊台座的稜角遮起來:四周底部嵌入大小不一的岩石、頂緣種灌木與草,讓台地看起來像自然的土石坡。
+	var rng := RandomNumberGenerator.new()
+	rng.seed = SCATTER_SEED + 77 + seed_offset
+	var half := size_xz * 0.5
+	var rocks := ["Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3"]
+	var perimeter := (size_xz.x + size_xz.y) * 2.0
+	var n := int(perimeter / 2.2)
+	for k in n:
+		var t := (float(k) + rng.randf_range(-0.3, 0.3)) / float(n) * perimeter
+		var local: Vector2
+		if t < size_xz.x:
+			local = Vector2(-half.x + t, -half.y)
+		elif t < size_xz.x + size_xz.y:
+			local = Vector2(half.x, -half.y + (t - size_xz.x))
+		elif t < size_xz.x * 2.0 + size_xz.y:
+			local = Vector2(half.x - (t - size_xz.x - size_xz.y), half.y)
+		else:
+			local = Vector2(-half.x, half.y - (t - size_xz.x * 2.0 - size_xz.y))
+		var out := local.normalized() if local.length() > 0.01 else Vector2.ZERO
+		var rock := _load_scene(rocks[rng.randi() % rocks.size()]).instantiate() as Node3D
+		rock.position = Vector3(center.x + local.x + out.x * 0.25, _ground_y(center) - 0.35, center.z + local.y + out.y * 0.25)
+		rock.rotation.y = rng.randf_range(0.0, TAU)
+		rock.scale = Vector3(rng.randf_range(1.2, 2.2), rng.randf_range(1.0, 2.0), rng.randf_range(1.2, 2.2)) * clampf(top_y * 0.2 + 0.6, 0.8, 1.2)
+		add_child(rock)
+	# 頂緣的灌木與草。
+	var green := WB.leaf_material(Color("6f8a52"))
+	for k in int(perimeter / 3.0):
+		var tt := rng.randf() * perimeter
+		var lp: Vector2
+		if tt < size_xz.x:
+			lp = Vector2(-half.x + tt, -half.y + 0.4)
+		elif tt < size_xz.x + size_xz.y:
+			lp = Vector2(half.x - 0.4, -half.y + (tt - size_xz.x))
+		elif tt < size_xz.x * 2.0 + size_xz.y:
+			lp = Vector2(half.x - (tt - size_xz.x - size_xz.y), half.y - 0.4)
+		else:
+			lp = Vector2(-half.x + 0.4, half.y - (tt - size_xz.x * 2.0 - size_xz.y))
+		var model := "Bush_Common" if rng.randf() < 0.5 else "Grass_Common_Tall"
+		var inst := _load_scene(model).instantiate() as Node3D
+		inst.position = Vector3(center.x + lp.x, _ground_y(center) + top_y, center.z + lp.y)
+		inst.rotation.y = rng.randf_range(0.0, TAU)
+		inst.scale = Vector3.ONE * rng.randf_range(0.8, 1.3)
+		if model.begins_with("Bush"):
+			_swap_leaf_material(inst, green)
+		else:
+			swayers.append({"node": inst, "phase": rng.randf_range(0.0, TAU), "amp": 0.09})
+		add_child(inst)
+
+
+func _build_shrine_hall() -> StaticBody3D:
+	## 主殿:灰泥牆(ambientCG Plaster001)+ 朱漆柱樑 + 切妻瓦屋頂。回傳封住正面的木門。
+	var door_mat := WB.tex("WoodFloor064", 0.5, Color("7a3a30"))
+	add_child(WB.box_body(Vector3(4, 6, 6), m_plaster, Vector3(-4, 3, -48)))
+	add_child(WB.box_body(Vector3(4, 6, 6), m_plaster, Vector3(4, 3, -48)))
+	add_child(WB.box_body(Vector3(12, 6, 1), m_plaster, Vector3(0, 3, -51.5)))
+	add_child(WB.box_body(Vector3(4, 2, 0.8), m_plaster, Vector3(0, 5, -45.4)))
+	# 朱漆柱與橫樑(只是外觀)。
+	for x: float in [-6.0, -2.0, 2.0, 6.0]:
+		add_child(WB.box_visual(Vector3(0.6, 6.4, 0.6), m_paint_red, Vector3(x, 3.2, -44.8)))
+	for x: float in [-6.0, 6.0]:
+		add_child(WB.box_visual(Vector3(0.6, 6.4, 0.6), m_paint_red, Vector3(x, 3.2, -51.2)))
+	add_child(WB.box_visual(Vector3(12.8, 0.45, 0.6), m_paint_red, Vector3(0, 5.8, -44.8)))
+	add_child(WB.box_visual(Vector3(12.8, 0.3, 0.5), m_paint_red, Vector3(0, 4.2, -44.8)))
+	for x: float in [-6.0, 6.0]:
+		add_child(WB.box_visual(Vector3(0.6, 0.45, 6.8), m_paint_red, Vector3(x, 5.8, -48)))
+	# 石基座(外觀,不影響通行)。
+	add_child(WB.box_visual(Vector3(13.4, 0.35, 0.9), m_stone_dark, Vector3(0, 0.17, -44.4)))
+	# 屋頂:瓦面稜柱 + 屋簷板 + 棟,放進 StaticBody 讓鏡頭遮擋時可半透明。
+	var roof := StaticBody3D.new()
+	roof.position = Vector3(0, 6.0, -48)
+	var prism := PrismMesh.new()
+	prism.size = Vector3(17, 3.6, 10.8)
+	roof.add_child(WB.mesh_instance(prism, m_roof, Vector3(0, 1.8, 0)))
+	roof.add_child(WB.box_visual(Vector3(17, 0.35, 10.8), m_roof, Vector3(0, 0.15, 0)))
+	roof.add_child(WB.box_visual(Vector3(0.5, 0.35, 11.2), m_stone_dark, Vector3(0, 3.65, 0)))
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(17, 3.6, 10.8)
+	shape.shape = box
+	shape.position = Vector3(0, 1.8, 0)
+	roof.add_child(shape)
+	add_child(roof)
+	var door := WB.box_body(Vector3(4, 4, 0.8), door_mat, Vector3(0, 2, -45.4))
+	add_child(door)
+	add_child(WB.box_body(Vector3(1.5, 1, 1), m_stone_dark, Vector3(0, 0.5, -49.8)))
+	return door
+
+
 func _scatter_is_blocked(p: Vector3) -> bool:
 	for r in scatter_blocked:
 		if r.has_point(Vector2(p.x, p.z)):
@@ -1045,41 +1341,64 @@ func _scatter_is_blocked(p: Vector3) -> bool:
 	return false
 
 
-func _scatter(model: String, count: int, min_scale: float, max_scale: float, rng: RandomNumberGenerator, leaf_mat: Material = null) -> void:
+func _scatter(model: String, count: int, min_scale: float, max_scale: float, rng: RandomNumberGenerator, leaf_mat: Material = null, clump := 1) -> void:
+	## clump > 1:以選到的點為中心成叢生長(草、花不會孤零零一株一株)。草花會登記進 swayers 隨風擺動。
 	var scene := _load_scene(model)
 	var bounds := _scatter_bounds()
+	var sway_amp := 0.0
+	if model.begins_with("Grass") or model.begins_with("Fern") or model.begins_with("Clover"):
+		sway_amp = 0.09
+	elif model.begins_with("Flower"):
+		sway_amp = 0.06
 	var placed := 0
 	var tries := 0
 	while placed < count and tries < count * 30:
 		tries += 1
-		var p := Vector3(
+		var center := Vector3(
 			rng.randf_range(bounds.position.x, bounds.end.x), 0.0,
 			rng.randf_range(bounds.position.y, bounds.end.y))
-		if not _is_free(p) or _scatter_is_blocked(p):
+		if not _is_free(center) or _scatter_is_blocked(center):
 			continue
-		p.y = _ground_y(p)
-		var inst := scene.instantiate() as Node3D
-		inst.position = p
-		inst.rotation.y = rng.randf_range(0.0, TAU)
-		inst.scale = Vector3.ONE * rng.randf_range(min_scale, max_scale)
-		if leaf_mat != null:
-			_swap_leaf_material(inst, leaf_mat)
-		add_child(inst)
-		placed += 1
+		for k in clump:
+			var p := center
+			if k > 0:
+				p += Vector3(rng.randf_range(-1.2, 1.2), 0.0, rng.randf_range(-1.2, 1.2))
+				if not _is_free(p) or _scatter_is_blocked(p):
+					continue
+			p.y = _ground_y(p)
+			var inst := scene.instantiate() as Node3D
+			inst.position = p
+			inst.rotation.y = rng.randf_range(0.0, TAU)
+			inst.scale = Vector3.ONE * rng.randf_range(min_scale, max_scale)
+			if leaf_mat != null:
+				_swap_leaf_material(inst, leaf_mat)
+			add_child(inst)
+			if sway_amp > 0.0:
+				swayers.append({"node": inst, "phase": rng.randf_range(0.0, TAU), "amp": sway_amp * rng.randf_range(0.6, 1.2)})
+			placed += 1
+
+
+func _update_sway() -> void:
+	for sw in swayers:
+		var n := sw["node"] as Node3D
+		var ph: float = sw["phase"]
+		var amp: float = sw["amp"]
+		n.rotation.x = sin(time * 1.5 + ph) * amp
+		n.rotation.z = cos(time * 1.2 + ph * 1.3) * amp
 
 
 func _scatter_vegetation(density: float = 1.0) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = SCATTER_SEED + 1
 	var green := WB.leaf_material(Color("6f8a52"))
-	_scatter("Grass_Common_Tall", int(60 * density), 0.8, 1.3, rng)
-	_scatter("Grass_Common_Short", int(60 * density), 0.8, 1.3, rng)
+	_scatter("Grass_Common_Tall", int(18 * density), 0.8, 1.4, rng, null, 5)
+	_scatter("Grass_Common_Short", int(18 * density), 0.8, 1.4, rng, null, 5)
 	_scatter("Bush_Common", int(14 * density), 0.9, 1.5, rng, green)
 	_scatter("Bush_Common_Flowers", int(8 * density), 0.9, 1.3, rng)
-	_scatter("Fern_1", int(12 * density), 0.8, 1.3, rng)
-	_scatter("Flower_3_Group", int(12 * density), 0.8, 1.2, rng)
-	_scatter("Flower_4_Group", int(12 * density), 0.8, 1.2, rng)
-	_scatter("Clover_1", int(18 * density), 0.8, 1.3, rng)
+	_scatter("Fern_1", int(5 * density), 0.8, 1.4, rng, null, 3)
+	_scatter("Flower_3_Group", int(5 * density), 0.8, 1.2, rng, null, 3)
+	_scatter("Flower_4_Group", int(5 * density), 0.8, 1.2, rng, null, 3)
+	_scatter("Clover_1", int(7 * density), 0.8, 1.3, rng, null, 3)
 	_scatter("Rock_Medium_1", int(4 * density), 0.7, 1.4, rng)
 	_scatter("Rock_Medium_2", int(4 * density), 0.7, 1.4, rng)
 	_scatter("Rock_Medium_3", int(4 * density), 0.7, 1.4, rng)
@@ -1126,12 +1445,7 @@ func _make_source(orb_pos: Vector3, tree_pos: Vector3, checkpoint: Vector3, tree
 	s.leaf_mat = WB.leaf_material(WB.C_WILTED)
 	_make_tree(tree_pos, s.leaf_mat, variant, tree_scale, float(variant) * 1.7)
 
-	var orb_mesh := SphereMesh.new()
-	orb_mesh.radius = 0.6
-	orb_mesh.height = 1.2
-	orb_mesh.radial_segments = 8
-	orb_mesh.rings = 4
-	s.orb = WB.mesh_instance(orb_mesh, WB.material(WB.C_MIASMA, true), orb_pos)
+	s.orb = _make_miasma(orb_pos)
 	s.base_y = orb_pos.y
 	add_child(s.orb)
 	s.marker = _make_marker(orb_pos, Color("b48cff"))

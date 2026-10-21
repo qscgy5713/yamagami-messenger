@@ -56,8 +56,13 @@
 - 該包的 `.fbx`、`.mtl` 下載時被瀏覽器擋下,尚未取得;`.obj` 內有 `mtllib shinto-shrine-gate.mtl` 參照,缺檔時 Godot 會以預設材質匯入。
 - 石燈籠(Sketchfab Japanese Toro)需登入才能下載,尚未取得。
 
+## 怪物模型(首領「妖氣之主」)
+- `assets/models/monsters/Ghost.glb`(198.6 KB)— Quaternius「Ghost」,Poly Pizza(https://poly.pizza/m/Iip30bDHmu),CC0,含 8 組動畫(使用 Flying_Idle)。遊戲中放大並以程式乘上暗紫色調。
+- 同頁另有 Quaternius「Demon」(https://poly.pizza/m/LnfIziKv4o,CC0)曾下載預覽,風格太卡通(圓眼紅惡魔),未採用,已從專案移除。
+- 其他評估但未採用:tt-3D Japanese Yokai 系列(題材最貼近,但授權與格式未確認:Blender / FBX);Quaternius Ultimate Monsters 整包(CC0、50 隻、含 glTF,尚未下載,可作之後的小怪來源)。
+
 ## 製作名單(Credits)
-- 狐狸模型、樹木與植被 — Quaternius(CC0,無須掛名,仍建議列出)。
+- 狐狸模型、樹木與植被、首領(Ghost) — Quaternius(CC0,無須掛名,仍建議列出)。
 - PBR 材質 — ambientCG(CC0)。
 - 字型 — Noto Sans TC,Google / Adobe(SIL OFL 1.1)。
 - Torii Gate — olde-tinkerer(itch.io),作者標示商用與非商用皆可,無正式授權條款。
@@ -70,3 +75,5 @@
 ## 授權備忘
 - CC0:免掛名。CC-BY:製作名單須列作者。避免 NC / ND 以外限制不明者。
 - 沒有確認 CC0 的日式神社整包;鳥居、燈籠、神社建築建議自建(基本幾何體即可)。
+- `assets/particles/*`(約 0.6 MB)— Kenney「Particle Pack 1.1」,CC0,妖氣源與嗅覺光柱用(授權檔 `KENNEY_LICENSE.txt`)。
+- `assets/textures/Plaster001/` — ambientCG Plaster001,CC0,主殿與土塀牆面。

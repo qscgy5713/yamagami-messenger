@@ -212,28 +212,30 @@ func _build_pond() -> void:
 	add_child(WB.box_body(Vector3(5, 1, 5), m_ground, Vector3(-20, -0.5, -8)))
 	for p: Vector3 in [Vector3(-12.8, -0.3, -8.0), Vector3(-15.6, -0.3, -7.2)]:
 		add_child(WB.box_body(Vector3(2, 0.6, 2), m_stone, p))
+	_dress_block(Vector3(-20, 0, -8), Vector2(5, 5), 0.0, 3)
 	_make_source(Vector3(-20, 1.2, -7.2), Vector3(-20, 0, -9.8), Vector3(-20, 1.0, -6.4), 0.4, 0)
 
 
 func _build_tower() -> void:
 	# 東邊望樓:木台階一路爬上去,頂面 y=4。
-	add_child(WB.box_body(Vector3(14, 4.5, 10), m_wood, Vector3(21, 1.75, -7)))
+	add_child(WB.box_body(Vector3(14, 4.5, 10), m_stone, Vector3(21, 1.75, -7)))
 	add_child(WB.box_body(Vector3(4, 1.8, 4), m_stone_dark, Vector3(21, 0.4, 5.5)))
 	add_child(WB.box_body(Vector3(4, 3.1, 4), m_stone_dark, Vector3(21, 1.05, 0)))
 	_make_source(Vector3(21, 5.2, -8), Vector3(21, 4, -10.5), Vector3(21, 5.0, -6), 0.45, 1)
+	_dress_block(Vector3(21, 0, -7), Vector2(14, 10), 4.0)
 
 
 func _build_gate_wall() -> void:
-	add_child(WB.box_body(Vector3(28, 6, 1), m_stone_dark, Vector3(-16, 3, -24)))
-	add_child(WB.box_body(Vector3(28, 6, 1), m_stone_dark, Vector3(16, 3, -24)))
+	add_child(_make_wall(Vector3(28, 6, 1), Vector3(-16, 3, -24)))
+	add_child(_make_wall(Vector3(28, 6, 1), Vector3(16, 3, -24)))
 	gate_door = WB.box_body(Vector3(4, 6, 1), m_wood, Vector3(0, 3, -24))
 	add_child(gate_door)
 
 
 func _build_cage_puzzle() -> void:
-	add_child(WB.box_body(Vector3(6, 3, 0.5), m_stone, Vector3(14, 1.5, -37)))
-	add_child(WB.box_body(Vector3(0.5, 3, 6), m_stone, Vector3(11, 1.5, -34)))
-	add_child(WB.box_body(Vector3(0.5, 3, 6), m_stone, Vector3(17, 1.5, -34)))
+	add_child(_make_wall(Vector3(6, 3, 0.5), Vector3(14, 1.5, -37)))
+	add_child(_make_wall(Vector3(0.5, 3, 6), Vector3(11, 1.5, -34)))
+	add_child(_make_wall(Vector3(0.5, 3, 6), Vector3(17, 1.5, -34)))
 	cage_door = WB.box_body(Vector3(6, 3, 0.5), m_wood, Vector3(14, 1.5, -31))
 	add_child(cage_door)
 	_make_source(Vector3(14, 1.2, -34), Vector3(14, 0, -36.0), Vector3(14, 1.0, -29), 0.32, 2)
@@ -257,13 +259,7 @@ func _build_cage_puzzle() -> void:
 
 
 func _build_hall() -> void:
-	add_child(WB.box_body(Vector3(4, 6, 6), m_paint_red, Vector3(-4, 3, -48)))
-	add_child(WB.box_body(Vector3(4, 6, 6), m_paint_red, Vector3(4, 3, -48)))
-	add_child(WB.box_body(Vector3(12, 6, 1), m_paint_red, Vector3(0, 3, -51.5)))
-	add_child(WB.box_body(Vector3(14, 1, 8), m_roof, Vector3(0, 6.5, -48)))
-	hall_door = WB.box_body(Vector3(4, 4, 0.8), m_wood, Vector3(0, 2, -45.4))
-	add_child(hall_door)
-	add_child(WB.box_body(Vector3(1.5, 1, 1), m_stone_dark, Vector3(0, 0.5, -49.8)))
+	hall_door = _build_shrine_hall()
 
 	var trigger := Area3D.new()
 	trigger.position = Vector3(0, 1, -48)

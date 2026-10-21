@@ -175,6 +175,8 @@ static func setup_input() -> void:
 		"pause": [KEY_ESCAPE],
 		"dash": [KEY_SHIFT],
 		"sniff": [KEY_Q],
+		"cam_left": [KEY_Z],
+		"cam_right": [KEY_C],
 	}
 	for action: String in bindings:
 		if not InputMap.has_action(action):

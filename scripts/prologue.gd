@@ -110,7 +110,7 @@ func _start() -> void:
 	hud_title.text = "序章・春夜"
 	hud_hint.text = ""
 	var help := WB.label(hud_title.get_parent(), 16)
-	help.text = "WASD / 方向鍵 移動    空白 跳躍    E 互動    Shift 衝刺    Q 嗅覺"
+	help.text = "WASD / 方向鍵 移動    空白 跳躍    E 互動    Shift 衝刺    Q 嗅覺    Z/C 或右鍵拖曳 轉視角"
 	help.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	help.offset_left = 24.0
 	help.offset_top = -40.0
